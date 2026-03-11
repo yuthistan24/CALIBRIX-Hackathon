@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Login | PFADS+</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="auth-layout">
+    <section class="card auth-card">
+      <aside class="auth-feature">
+        <div class="eyebrow">Student Portal</div>
+        <h1 class="page-title">Return to your support dashboard.</h1>
+        <p class="lead">Access your PFADS results, AI chat, resilience streaks, and counselor sessions.</p>
+      </aside>
+      <div class="auth-form-wrap">
+        <h2>Student Login</h2>
+        <p class="small" data-error-box></p>
+        <form class="stack" data-auth-form data-endpoint="/api/auth/students/login">
+          <div class="field">
+            <label>Email</label>
+            <input type="email" name="email" required />
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" name="password" required />
+          </div>
+          <div class="button-row">
+            <button class="btn" type="submit">Login</button>
+            <a class="btn-ghost" href="/student-register.html">Register</a>
+          </div>
+        </form>
+      </div>
+    </section>
+    <script type="module" src="/js/auth-page.js"></script>
+  </body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Dashboard | PFADS+</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/dashboard.html"><span class="brand-mark">P+</span><span>PFADS+</span></a>
+        <nav class="nav-links">
+          <a class="nav-link active" href="/dashboard.html">Dashboard</a>
+          <a class="nav-link" href="/assessment.html">Assessment</a>
+          <a class="nav-link" href="/ai-chat.html">AI Chat</a>
+          <button class="btn-ghost" id="logout-button" type="button">Logout</button>
+        </nav>
+      </header>
+
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <span class="eyebrow" id="student-name">Student</span>
+            <h1 class="page-title">Your mental health and dropout risk dashboard</h1>
+          </div>
+          <div class="button-row">
+            <a class="btn" href="/assessment.html">Retake PFADS</a>
+            <a class="btn-soft" href="/ai-chat.html">Open AI Support</a>
+          </div>
+        </div>
+        <div class="stats-grid" id="student-metrics"></div>
+      </section>
+
+      <section class="section split">
+        <article class="card chart-panel">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Psychological Profile</h2>
+              <p class="section-copy">Risk-adjusted PFADS section severity.</p>
+            </div>
+          </div>
+          <canvas id="pfads-chart"></canvas>
+        </article>
+        <aside class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Active Alerts</h2>
+              <p class="section-copy">Escalations generated from screening and sentiment monitoring.</p>
+            </div>
+          </div>
+          <div class="list" id="alerts-list"></div>
+        </aside>
+      </section>
+
+      <section class="section split">
+        <article class="card chart-panel">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Emotion Timeline</h2>
+              <p class="section-copy">Recent sentiment trend across AI and counselor interactions.</p>
+            </div>
+          </div>
+          <canvas id="emotion-chart"></canvas>
+        </article>
+        <aside class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Counseling Request</h2>
+              <p class="section-copy">Workload-aware counselor assignment.</p>
+            </div>
+          </div>
+          <form id="appointment-form" class="stack">
+            <div class="field">
+              <label>Preferred Support Area</label>
+              <input name="specializationNeed" placeholder="Optional. Leave blank to use dominant risk." />
+            </div>
+            <div class="field">
+              <label>Preferred Date</label>
+              <input type="datetime-local" name="preferredDate" required />
+            </div>
+            <div class="field">
+              <label>Notes</label>
+              <textarea name="notes" rows="4" placeholder="Tell the counselor what you need help with."></textarea>
+            </div>
+            <button class="btn" type="submit">Book Session</button>
+          </form>
+        </aside>
+      </section>
+
+      <section class="section split">
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Assigned Sessions</h2>
+              <p class="section-copy">Your appointment history and direct counselor links.</p>
+            </div>
+          </div>
+          <div class="list" id="appointments-list"></div>
+        </article>
+        <aside class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Resilience Training</h2>
+              <p class="section-copy">Daily exercises, streaks, badges, and mental recovery routines.</p>
+            </div>
+          </div>
+          <div class="stack">
+            <div id="resilience-summary" class="list-item"></div>
+            <div class="list" id="resource-list"></div>
+            <div class="list" id="hospital-list"></div>
+          </div>
+        </aside>
+      </section>
+    </div>
+    <script type="module" src="/js/dashboard.js"></script>
+  </body>
+</html>

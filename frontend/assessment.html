@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PFADS Assessment | PFADS+</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/dashboard.html"><span class="brand-mark">P+</span><span>PFADS+</span></a>
+        <nav class="nav-links">
+          <a class="nav-link active" href="/assessment.html">Assessment</a>
+          <a class="nav-link" href="/dashboard.html">Dashboard</a>
+          <a class="nav-link" href="/ai-chat.html">AI Chat</a>
+          <button class="btn-ghost" id="logout-button" type="button">Logout</button>
+        </nav>
+      </header>
+
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <span class="eyebrow">PFADS Questionnaire</span>
+            <h1 class="page-title">Complete all 50 items</h1>
+            <p class="section-copy">Higher scores indicate stronger psychological influence on dropout vulnerability.</p>
+          </div>
+        </div>
+        <div class="card">
+          <form id="assessment-form" class="stack">
+            <div id="assessment-content" class="stack"></div>
+            <div class="button-row">
+              <button class="btn" type="submit">Submit Assessment</button>
+              <p id="assessment-status" class="muted"></p>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/js/assessment.js"></script>
+  </body>
+</html>

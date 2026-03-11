@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Counselor Dashboard | PFADS+</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/counselor-dashboard.html"><span class="brand-mark">P+</span><span>PFADS+</span></a>
+        <nav class="nav-links">
+          <a class="nav-link active" href="/counselor-dashboard.html">Dashboard</a>
+          <button class="btn-ghost" id="logout-button" type="button">Logout</button>
+        </nav>
+      </header>
+
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <span class="eyebrow" id="counselor-name">Counselor</span>
+            <h1 class="page-title">Case queue and risk oversight</h1>
+          </div>
+        </div>
+        <div class="stats-grid" id="counselor-metrics"></div>
+      </section>
+
+      <section class="section split">
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Assigned Appointments</h2>
+              <p class="section-copy">Balanced by specialization, district, and workload.</p>
+            </div>
+          </div>
+          <div class="list" id="counselor-appointments"></div>
+        </article>
+
+        <aside class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Alert Queue</h2>
+              <p class="section-copy">Students with elevated PFADS or distress sentiment.</p>
+            </div>
+          </div>
+          <div class="list" id="counselor-alerts"></div>
+        </aside>
+      </section>
+
+      <section class="section">
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Student Report</h2>
+              <p class="section-copy">Select a student case to load PFADS, prediction, and sentiment history.</p>
+            </div>
+          </div>
+          <div id="student-report" class="muted">Select a student from the appointment list.</div>
+        </article>
+      </section>
+    </div>
+    <script type="module" src="/js/counselor-dashboard.js"></script>
+  </body>
+</html>

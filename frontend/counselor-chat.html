@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Counselor Chat | PFADS+</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script src="/socket.io/socket.io.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/dashboard.html"><span class="brand-mark">P+</span><span>PFADS+</span></a>
+        <nav class="nav-links">
+          <a class="nav-link" href="/dashboard.html">Student Dashboard</a>
+          <a class="nav-link" href="/counselor-dashboard.html">Counselor Dashboard</a>
+          <a class="nav-link active" href="/counselor-chat.html">Live Chat</a>
+          <button class="btn-ghost" id="logout-button" type="button">Logout</button>
+        </nav>
+      </header>
+
+      <section class="chat-layout">
+        <aside class="card stack">
+          <div>
+            <span class="eyebrow">Socket.io Messaging</span>
+            <h1 class="page-title">Real-time counselor conversation</h1>
+            <p class="section-copy">Instant messages, typing indicators, presence updates, and persisted history.</p>
+          </div>
+          <div class="list-item">
+            <h3>Session Info</h3>
+            <p id="chat-peer-label" class="muted">Waiting for conversation context.</p>
+            <p id="peer-presence" class="small muted">Presence not known yet.</p>
+          </div>
+        </aside>
+
+        <article class="card chat-window">
+          <div>
+            <h2 class="section-title">Conversation</h2>
+            <div id="typing-indicator" class="typing-indicator"></div>
+          </div>
+          <div class="chat-messages" id="room-messages"></div>
+          <div class="chat-input-row">
+            <input id="room-input" placeholder="Write a supportive message..." />
+            <button class="btn" id="send-room-message" type="button">Send</button>
+          </div>
+        </article>
+      </section>
+    </div>
+    <script type="module" src="/js/counselor-chat.js"></script>
+  </body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Support Chat | PFADS+</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/dashboard.html"><span class="brand-mark">P+</span><span>PFADS+</span></a>
+        <nav class="nav-links">
+          <a class="nav-link" href="/dashboard.html">Dashboard</a>
+          <a class="nav-link active" href="/ai-chat.html">AI Chat</a>
+          <a class="nav-link" href="/assessment.html">Assessment</a>
+          <button class="btn-ghost" id="logout-button" type="button">Logout</button>
+        </nav>
+      </header>
+
+      <section class="chat-layout">
+        <aside class="card stack">
+          <div>
+            <span class="eyebrow">Voice-enabled AI Support</span>
+            <h1 class="page-title">Local mental health assistant</h1>
+            <p class="section-copy">Use text or speech. The assistant can suggest coping strategies and recommend counselor escalation.</p>
+          </div>
+          <div class="list-item">
+            <h3>Voice Controls</h3>
+            <div class="button-row">
+              <button class="btn" id="voice-input-button" type="button">Start Voice Input</button>
+              <button class="btn-soft" id="voice-output-button" type="button">Read Last Reply</button>
+            </div>
+            <p class="small muted" id="voice-status">Browser speech APIs are idle.</p>
+          </div>
+          <div class="list-item">
+            <h3>AI Response Notes</h3>
+            <div id="coping-list" class="list"></div>
+          </div>
+        </aside>
+
+        <article class="card chat-window">
+          <div>
+            <h2 class="section-title">Conversation</h2>
+            <p class="section-copy" id="sentiment-state">The assistant will analyze emotional tone in each message.</p>
+          </div>
+          <div class="chat-messages" id="ai-messages"></div>
+          <div class="chat-input-row">
+            <input id="ai-input" placeholder="Tell the assistant how you are feeling..." />
+            <button class="btn" id="send-ai-message" type="button">Send</button>
+          </div>
+        </article>
+      </section>
+    </div>
+    <script type="module" src="/js/ai-chat.js"></script>
+  </body>
+</html>

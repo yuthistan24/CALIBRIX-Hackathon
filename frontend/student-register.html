@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Registration | PFADS+</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="auth-layout">
+    <section class="card auth-card">
+      <aside class="auth-feature">
+        <div class="eyebrow">Student Access</div>
+        <h1 class="page-title">Start with screening, not crisis.</h1>
+        <p class="lead">
+          Register, complete PFADS immediately, and get routed into AI support, resilience exercises, and counselor care.
+        </p>
+      </aside>
+      <div class="auth-form-wrap">
+        <h2>Create Student Account</h2>
+        <p class="muted">After registration you will be redirected to the PFADS assessment.</p>
+        <p class="small" data-error-box></p>
+        <form class="form-grid" data-auth-form data-endpoint="/api/auth/students/register">
+          <div class="field">
+            <label>Full Name</label>
+            <input name="fullName" required />
+          </div>
+          <div class="field">
+            <label>Age</label>
+            <input type="number" name="age" min="10" max="100" required />
+          </div>
+          <div class="field">
+            <label>Gender</label>
+            <select name="gender" required>
+              <option value="">Select</option>
+              <option>Female</option>
+              <option>Male</option>
+              <option>Non-binary</option>
+              <option>Prefer not to say</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>District</label>
+            <input name="district" required />
+          </div>
+          <div class="field-full">
+            <label>Address</label>
+            <textarea name="address" rows="3" required></textarea>
+          </div>
+          <div class="field">
+            <label>Mobile Number</label>
+            <input name="mobileNumber" required />
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input type="email" name="email" required />
+          </div>
+          <div class="field-full">
+            <label>Password</label>
+            <input type="password" name="password" required minlength="6" />
+          </div>
+          <div class="field-full button-row">
+            <button class="btn" type="submit">Create Account</button>
+            <a class="btn-ghost" href="/student-login.html">Already have an account?</a>
+          </div>
+        </form>
+      </div>
+    </section>
+    <script type="module" src="/js/auth-page.js"></script>
+  </body>
+</html>

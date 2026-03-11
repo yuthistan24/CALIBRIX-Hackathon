@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard | PFADS+</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/admin-dashboard.html"><span class="brand-mark">P+</span><span>PFADS+</span></a>
+        <nav class="nav-links">
+          <a class="nav-link active" href="/admin-dashboard.html">Analytics</a>
+          <button class="btn-ghost" id="logout-button" type="button">Logout</button>
+        </nav>
+      </header>
+
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <span class="eyebrow">Institutional Monitoring</span>
+            <h1 class="page-title">Psychological and dropout trend intelligence</h1>
+          </div>
+        </div>
+        <div class="stats-grid" id="admin-metrics"></div>
+      </section>
+
+      <section class="section card-grid">
+        <article class="card chart-panel">
+          <h2 class="section-title">PFADS Radar</h2>
+          <canvas id="radar-chart"></canvas>
+        </article>
+        <article class="card chart-panel">
+          <h2 class="section-title">Risk Distribution</h2>
+          <canvas id="risk-bar-chart"></canvas>
+        </article>
+        <article class="card chart-panel">
+          <h2 class="section-title">Cluster Distribution</h2>
+          <canvas id="cluster-pie-chart"></canvas>
+        </article>
+        <article class="card chart-panel">
+          <h2 class="section-title">Sentiment Trend</h2>
+          <canvas id="sentiment-chart"></canvas>
+        </article>
+      </section>
+
+      <section class="section">
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">District Heatmap</h2>
+              <p class="section-copy">Average PFADS severity and unresolved alert intensity by district.</p>
+            </div>
+          </div>
+          <div id="district-heatmap" class="heatmap"></div>
+        </article>
+      </section>
+
+      <section class="section split">
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Students</h2>
+              <p class="section-copy">Latest score and dropout prediction snapshot per student.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>District</th>
+                  <th>PFADS</th>
+                  <th>Prediction</th>
+                </tr>
+              </thead>
+              <tbody id="students-table"></tbody>
+            </table>
+          </div>
+        </article>
+        <aside class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Alerts</h2>
+              <p class="section-copy">Resolve escalations after triage.</p>
+            </div>
+          </div>
+          <div id="admin-alerts" class="list"></div>
+        </aside>
+      </section>
+
+      <section class="section">
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Counselors</h2>
+              <p class="section-copy">Workload, specialization, and district coverage.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Specialization</th>
+                  <th>District</th>
+                  <th>Active Sessions</th>
+                </tr>
+              </thead>
+              <tbody id="counselors-table"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </div>
+    <script type="module" src="/js/admin-dashboard.js"></script>
+  </body>
+</html>

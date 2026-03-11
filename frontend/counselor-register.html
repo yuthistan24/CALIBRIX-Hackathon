@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Counselor Registration | PFADS+</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="auth-layout">
+    <section class="card auth-card">
+      <aside class="auth-feature">
+        <div class="eyebrow">Counselor Access</div>
+        <h1 class="page-title">Join the intervention network.</h1>
+        <p class="lead">Create your counselor profile to receive balanced caseload assignments and student alerts.</p>
+      </aside>
+      <div class="auth-form-wrap">
+        <h2>Create Counselor Account</h2>
+        <p class="small" data-error-box></p>
+        <form class="form-grid" data-auth-form data-endpoint="/api/auth/counselors/register">
+          <div class="field">
+            <label>Name</label>
+            <input name="name" required />
+          </div>
+          <div class="field">
+            <label>Qualification</label>
+            <input name="qualification" required />
+          </div>
+          <div class="field-full">
+            <label>Specialization</label>
+            <input name="specialization" placeholder="Anxiety, academic stress, family counseling" required />
+          </div>
+          <div class="field">
+            <label>Experience (years)</label>
+            <input type="number" name="experience" min="0" required />
+          </div>
+          <div class="field">
+            <label>Hospital or Clinic</label>
+            <input name="hospitalOrClinic" required />
+          </div>
+          <div class="field">
+            <label>District</label>
+            <input name="district" required />
+          </div>
+          <div class="field">
+            <label>Mobile Number</label>
+            <input name="mobileNumber" required />
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input type="email" name="email" required />
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" name="password" minlength="6" required />
+          </div>
+          <div class="field">
+            <label>Workload Capacity</label>
+            <input type="number" name="workloadCapacity" min="1" value="8" required />
+          </div>
+          <div class="field-full button-row">
+            <button class="btn" type="submit">Create Account</button>
+            <a class="btn-ghost" href="/counselor-login.html">Already registered?</a>
+          </div>
+        </form>
+      </div>
+    </section>
+    <script type="module" src="/js/auth-page.js"></script>
+  </body>
+</html>
