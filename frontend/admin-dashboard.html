@@ -2,15 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Dashboard | PFADS+</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#020617" />
+    <title>Admin Dashboard | MindGuard</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/css/styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
   </head>
   <body>
     <div class="page-shell">
       <header class="topbar">
-        <a class="brand" href="/admin-dashboard.html"><span class="brand-mark">P+</span><span>PFADS+</span></a>
+        <a class="brand" href="/admin-dashboard.html"><span class="brand-mark">MG</span><span>MindGuard</span></a>
         <nav class="nav-links">
           <a class="nav-link active" href="/admin-dashboard.html">Analytics</a>
           <button class="btn-ghost" id="logout-button" type="button">Logout</button>
@@ -115,6 +119,7 @@
         </article>
       </section>
     </div>
+    <script type="module" src="/js/mobile-shell.js"></script>
     <script type="module" src="/js/admin-dashboard.js"></script>
   </body>
 </html>

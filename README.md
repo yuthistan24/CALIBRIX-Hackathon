@@ -2,6 +2,8 @@
 
 PFADS+ is a locally runnable hackathon-ready mental health and academic dropout risk platform for students, counselors, and administrators.
 
+The student-facing shell now also ships as an installable mobile-first web app branded as `MindGuard`, while preserving the existing PFADS+ assessment, AI, counseling, and analytics content.
+
 ## Stack
 
 - Frontend: HTML, CSS, JavaScript, Chart.js
@@ -47,14 +49,31 @@ npm install
 npm run dev
 ```
 
-5. Open `http://localhost:3000`
+5. If you want the upgraded chatbot to use a local LLM, start Ollama and pull the configured model:
+
+```bash
+ollama pull llama3.2
+ollama serve
+```
+
+6. Open `http://localhost:3000`
 
 If port `3000` is already occupied, the backend automatically retries the next available port and prints the actual URL in the terminal.
 
+## Mobile app usage
+
+- Open the site from a mobile browser and use `Add to Home Screen` to install `MindGuard` as a full-screen app.
+- The frontend now includes:
+  - `manifest.webmanifest`
+  - `service-worker.js`
+  - mobile-safe viewport and safe-area spacing
+  - a mobile-first dark visual system shared across dashboards, chat, auth, and analytics pages
+- The home screen launcher opens the same app content from `index.html`, so the mobile experience stays connected to the existing website flows and APIs.
+
 ## Demo credentials
 
-- Email: value of `ADMIN_EMAIL`
-- Password: value of `ADMIN_PASSWORD`
+- Default admin email: `admin@pfadsplus.local`
+- Default admin password: `Admin@12345`
 
 Seeded counselors are created automatically when the counselors collection is empty.
 
@@ -68,11 +87,26 @@ Seeded counselors are created automatically when the counselors collection is em
 - PFADS 50-question assessment with risk-adjusted scoring and section breakdown
 - Local AI clustering for dominant psychological profile detection
 - Dropout probability scoring based on PFADS, sentiment, and engagement factors
+- Daily mental-health check-ins with stored responses, short-term risk scoring, and alerting
+- Daily task system with streak tracking and completion-time variance analysis
 - Sentiment analysis on AI chat and counselor chat
 - Real-time alerts for severe distress, high PFADS scores, and repeated negative patterns
 - Counselor workload balancing using specialization, district, and active session count
-- Voice-enabled AI support using browser SpeechRecognition and SpeechSynthesis
+- LLM-backed AI support with OpenAI `gpt-4o` / `gpt-4o-mini` provider support and Ollama local fallback
+- Voice transcription route for recorded chat messages when OpenAI transcription is configured
+- Voice-enabled AI support using browser SpeechRecognition, SpeechSynthesis, and a 3-minute self-introduction recorder with needs analysis
+- Multilingual support hooks for major Indian languages through the translation service
+- Psychologist directory, scholarship guidance, personalized video recommendations, mini-games, and device sync hooks
+- Mobile-first MindGuard landing page with animated hero scene and installable PWA shell
 - Admin analytics with radar, bar, pie, and heatmap views
+
+## New prototype datasets
+
+- `backend/data/psychologists.js`: sample top-10 psychologist directory cards with photos, addresses, and blog links
+- `backend/data/scholarships.js`: scholarship opportunities and application guidance
+- `backend/data/videoRecommendations.js`: personalized learning and resilience video mapping
+- `backend/data/miniGames.js`: mini-game metadata for the student dashboard
+- `backend/data/dailyTasks.js`: configurable daily task catalog
 
 ## Main API endpoints
 
@@ -88,12 +122,19 @@ Seeded counselors are created automatically when the counselors collection is em
 ### Student
 
 - `GET /api/students/questions`
+- `GET /api/students/daily-checkin/questions`
+- `GET /api/students/daily-checkin`
+- `POST /api/students/daily-checkin`
 - `POST /api/students/assessment`
 - `GET /api/students/dashboard`
 - `GET /api/students/resources`
 - `GET /api/students/emotion-timeline`
 - `POST /api/students/appointments`
 - `POST /api/students/ai-chat`
+- `POST /api/students/voice/transcribe`
+- `POST /api/students/daily-tasks/:taskId/complete`
+- `POST /api/students/device-sync`
+- `POST /api/students/self-introduction/analyze`
 - `POST /api/students/resilience`
 
 ### Counselor
@@ -120,8 +161,16 @@ Seeded counselors are created automatically when the counselors collection is em
 
 - Backend CommonJS syntax checked with `node --check`
 - Python AI service syntax checked with `python -m py_compile`
+- Frontend ES module parsing checked with `vm.SourceTextModule`
 
 ## Remaining live verification
 
 - `npm install` has not been run in this session
 - MongoDB-backed API execution and browser rendering were not live-tested here
+- Home-screen installation was not device-tested in this session
+
+## Notes
+
+- The psychologist directory is prototype sample data intended for the hackathon build and should be replaced with institution-approved or verified entries before deployment.
+- Device integration currently exposes local sync hooks for manual, wearable, and mobile-health connectors; production deployments should wire those hooks to approved vendor APIs.
+- For a real hosted LLM path, set `LLM_PROVIDER=openai` and configure `OPENAI_API_KEY`. For a free local path, keep `LLM_PROVIDER=ollama` and run Ollama locally.

@@ -1,21 +1,90 @@
 const Alert = require('../models/Alert');
 const SentimentLog = require('../models/SentimentLog');
+const Appointment = require('../models/Appointment');
+
+const DUPLICATE_WINDOW_MS = 1000 * 60 * 60 * 6;
+const CRISIS_PATTERNS = [
+  'suicide',
+  'kill myself',
+  'self harm',
+  'self-harm',
+  'end my life',
+  'want to die',
+  'cannot go on',
+  "can't go on",
+  'hurt myself'
+];
+
+async function hydrateAlert(alertId) {
+  return Alert.findById(alertId)
+    .populate('student', 'fullName district')
+    .populate('counselor', 'name district email mobileNumber')
+    .lean();
+}
+
+async function resolveCounselorId(studentId, counselorId) {
+  if (counselorId) {
+    return counselorId;
+  }
+
+  const latestAppointment = await Appointment.findOne({ student: studentId })
+    .sort({ createdAt: -1 })
+    .select('counselor')
+    .lean();
+
+  return latestAppointment?.counselor || null;
+}
+
+async function emitAlert(io, counselorId, alert) {
+  if (!io || !alert) {
+    return;
+  }
+
+  io.to('role:admin').emit('alerts:new', alert);
+  if (counselorId) {
+    io.to(`user:${counselorId.toString()}`).emit('alerts:new', alert);
+  }
+}
 
 async function findOrCreateAlert({ studentId, counselorId, type, severity, title, description, metadata = {}, io }) {
+  const linkedCounselorId = await resolveCounselorId(studentId, counselorId);
   const recentDuplicate = await Alert.findOne({
     student: studentId,
     type,
     resolved: false,
-    createdAt: { $gte: new Date(Date.now() - 1000 * 60 * 60 * 6) }
+    createdAt: { $gte: new Date(Date.now() - DUPLICATE_WINDOW_MS) }
   });
 
   if (recentDuplicate) {
-    return recentDuplicate;
+    let changed = false;
+
+    if (!recentDuplicate.counselor && linkedCounselorId) {
+      recentDuplicate.counselor = linkedCounselorId;
+      changed = true;
+    }
+
+    if (metadata && Object.keys(metadata).length) {
+      recentDuplicate.metadata = {
+        ...(recentDuplicate.metadata || {}),
+        ...metadata
+      };
+      changed = true;
+    }
+
+    if (changed) {
+      await recentDuplicate.save();
+    }
+
+    const hydratedDuplicate = await hydrateAlert(recentDuplicate._id);
+    if (changed) {
+      await emitAlert(io, hydratedDuplicate?.counselor?._id || linkedCounselorId, hydratedDuplicate);
+    }
+    return hydratedDuplicate;
   }
 
   const alert = await Alert.create({
     student: studentId,
-    counselor: counselorId || null,
+    counselor: linkedCounselorId,
     type,
     severity,
     title,
@@ -23,14 +92,9 @@ async function findOrCreateAlert({ studentId, counselorId, type, severity, title
     metadata
   });
 
-  if (io) {
-    io.to('role:admin').emit('alerts:new', alert);
-    if (counselorId) {
-      io.to(`user:${counselorId}`).emit('alerts:new', alert);
-    }
-  }
-
-  return alert;
+  const hydrated = await hydrateAlert(alert._id);
+  await emitAlert(io, linkedCounselorId, hydrated);
+  return hydrated;
 }
 
 async function countRepeatedNegativePatterns(studentId) {
@@ -98,10 +162,28 @@ async function evaluateAssessmentAlerts({ studentId, counselorId, pfadsScore, pr
   return alerts;
 }
 
-async function evaluateSentimentAlerts({ studentId, counselorId, sentiment, sourceType, io }) {
+async function evaluateSentimentAlerts({ studentId, counselorId, sentiment, sourceType, messageText = '', io }) {
   const alerts = [];
+  const loweredMessage = String(messageText || '').toLowerCase();
+  const explicitCrisis = CRISIS_PATTERNS.some((pattern) => loweredMessage.includes(pattern));
 
-  if (sentiment.label === 'Negative' && sentiment.stressIndicator >= 0.75) {
+  if (explicitCrisis) {
+    alerts.push(
+      await findOrCreateAlert({
+        studentId,
+        counselorId,
+        type: 'crisis_language_detected',
+        severity: 'high',
+        title: 'Urgent crisis language detected',
+        description: `A ${sourceType} message included language associated with immediate risk.`,
+        metadata: {
+          sentiment,
+          messageText
+        },
+        io
+      })
+    );
+  } else if (sentiment.label === 'Negative' && sentiment.stressIndicator >= 0.75) {
     alerts.push(
       await findOrCreateAlert({
         studentId,
@@ -120,7 +202,7 @@ async function evaluateSentimentAlerts({ studentId, counselorId, sentiment, sour
         studentId,
         counselorId,
         type: 'negative_sentiment_pattern',
-        severity: 'low',
+        severity: sentiment.stressIndicator >= 0.5 ? 'moderate' : 'low',
         title: 'Negative sentiment observed',
         description: `A ${sourceType} message showed negative emotional tone.`,
         metadata: sentiment,
@@ -148,7 +230,32 @@ async function evaluateSentimentAlerts({ studentId, counselorId, sentiment, sour
   return alerts;
 }
 
+async function evaluateChatEscalationAlert({ studentId, counselorId, chatReply, studentMessage, io }) {
+  if (!chatReply?.escalate) {
+    return [];
+  }
+
+  return [
+    await findOrCreateAlert({
+      studentId,
+      counselorId,
+      type: 'ai_chat_escalation',
+      severity: chatReply.alertSeverity || 'moderate',
+      title: 'AI chat escalation recommended',
+      description: chatReply.escalationReason || 'The AI support session recommends counsellor follow-up.',
+      metadata: {
+        topic: chatReply.topic,
+        source: chatReply.source,
+        studentMessage
+      },
+      io
+    })
+  ];
+}
+
 module.exports = {
+  findOrCreateAlert,
   evaluateAssessmentAlerts,
-  evaluateSentimentAlerts
+  evaluateSentimentAlerts,
+  evaluateChatEscalationAlert
 };

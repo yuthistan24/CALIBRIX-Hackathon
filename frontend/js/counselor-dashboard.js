@@ -2,6 +2,7 @@ import {
   apiFetch,
   conversationRoomId,
   formatDate,
+  getToken,
   loadCurrentUser,
   logout,
   requireAuth,
@@ -18,6 +19,7 @@ const alertsContainer = document.getElementById('counselor-alerts');
 const reportContainer = document.getElementById('student-report');
 
 let counselor;
+let socket;
 
 function renderMetrics(data) {
   document.getElementById('counselor-name').textContent = data.counselor.name;
@@ -146,12 +148,46 @@ function renderAlerts(alerts) {
     .join('');
 }
 
-async function loadDashboard() {
-  counselor = await loadCurrentUser();
+async function loadDashboard({ refreshUser = true } = {}) {
+  if (refreshUser) {
+    counselor = await loadCurrentUser();
+  }
   const data = await apiFetch('/api/counselors/dashboard');
   renderMetrics(data);
   renderAppointments(data);
   renderAlerts(data.alerts);
 }
 
-loadDashboard().catch((error) => showToast(error.message, 'error'));
+function setupLiveUpdates() {
+  if (socket || !window.io) {
+    return;
+  }
+
+  socket = window.io({
+    auth: {
+      token: getToken()
+    }
+  });
+
+  socket.on('alerts:new', (alert) => {
+    showToast(`Alert for ${alert.student?.fullName || 'student'}: ${alert.title}`);
+    loadDashboard().catch((error) => showToast(error.message, 'error'));
+  });
+
+  socket.on('alerts:resolved', () => {
+    loadDashboard().catch((error) => showToast(error.message, 'error'));
+  });
+
+  socket.on('appointments:new', () => {
+    showToast('A new appointment was assigned.');
+    loadDashboard().catch((error) => showToast(error.message, 'error'));
+  });
+}
+
+async function initialize() {
+  counselor = await loadCurrentUser();
+  setupLiveUpdates();
+  await loadDashboard({ refreshUser: false });
+}
+
+initialize().catch((error) => showToast(error.message, 'error'));

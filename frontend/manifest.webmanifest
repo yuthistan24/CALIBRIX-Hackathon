@@ -1,0 +1,36 @@
+{
+  "name": "MindGuard",
+  "short_name": "MindGuard",
+  "description": "Student mental wellness, PFADS risk screening, AI guidance, counsellor chat, and institutional analytics in an installable mobile web app.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Student Login",
+      "short_name": "Student",
+      "url": "/student-login.html"
+    },
+    {
+      "name": "AI Chat",
+      "short_name": "AI Chat",
+      "url": "/ai-chat.html"
+    },
+    {
+      "name": "Counsellor Login",
+      "short_name": "Counsellor",
+      "url": "/counselor-login.html"
+    }
+  ]
+}

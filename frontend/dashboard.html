@@ -2,15 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Student Dashboard | PFADS+</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#020617" />
+    <title>Student Dashboard | MindGuard</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/css/styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
     <div class="page-shell">
       <header class="topbar">
-        <a class="brand" href="/dashboard.html"><span class="brand-mark">P+</span><span>PFADS+</span></a>
+        <a class="brand" href="/dashboard.html"><span class="brand-mark">MG</span><span>MindGuard</span></a>
         <nav class="nav-links">
           <a class="nav-link active" href="/dashboard.html">Dashboard</a>
           <a class="nav-link" href="/assessment.html">Assessment</a>
@@ -26,11 +29,115 @@
             <h1 class="page-title">Your mental health and dropout risk dashboard</h1>
           </div>
           <div class="button-row">
+            <select id="language-selector"></select>
             <a class="btn" href="/assessment.html">Retake PFADS</a>
             <a class="btn-soft" href="/ai-chat.html">Open AI Support</a>
           </div>
         </div>
         <div class="stats-grid" id="student-metrics"></div>
+      </section>
+
+      <section class="section split">
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title" id="mentor-title">Assigned Mentor</h2>
+              <p class="section-copy">Your counsellor is surfaced here as your primary mentor contact.</p>
+            </div>
+          </div>
+          <div id="mentor-card" class="stack"></div>
+        </article>
+        <aside class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title" id="scholarship-title">Scholarship Support</h2>
+              <p class="section-copy">Funding opportunities and application guidance.</p>
+            </div>
+          </div>
+          <div id="scholarship-list" class="list"></div>
+        </aside>
+      </section>
+
+      <section class="section">
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title" id="psychologist-title">Psychologist Directory</h2>
+              <p class="section-copy">Top 10 prototype psychologists with blogs and regional presence.</p>
+            </div>
+          </div>
+          <div id="psychologists-grid" class="card-grid"></div>
+        </article>
+      </section>
+
+      <section class="section split">
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title" id="tasks-title">Daily Tasks</h2>
+              <p class="section-copy">Track streaks and completion time variance for support-building habits.</p>
+            </div>
+          </div>
+          <div id="task-summary" class="list-item"></div>
+          <div id="daily-task-list" class="list"></div>
+        </article>
+        <aside class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title" id="device-title">Device Integration</h2>
+              <p class="section-copy">Sync steps, sleep, and focus time from mobile or smartwatch hooks.</p>
+            </div>
+          </div>
+          <div id="device-summary" class="list-item"></div>
+          <form id="device-sync-form" class="stack">
+            <div class="field">
+              <label>Source</label>
+              <input name="source" placeholder="Google Fit, Apple Health, Fitbit, Manual" required />
+            </div>
+            <div class="field">
+              <label>Hook Type</label>
+              <input name="hookType" placeholder="manual / google_fit / apple_health / fitbit / wear_os" />
+            </div>
+            <div class="field">
+              <label>Steps</label>
+              <input type="number" name="steps" min="0" value="0" />
+            </div>
+            <div class="field">
+              <label>Sleep Hours</label>
+              <input type="number" step="0.1" name="sleepHours" min="0" value="0" />
+            </div>
+            <div class="field">
+              <label>Focus Minutes</label>
+              <input type="number" name="focusMinutes" min="0" value="0" />
+            </div>
+            <div class="field">
+              <label>Notes</label>
+              <textarea name="notes" rows="3" placeholder="Optional sync notes"></textarea>
+            </div>
+            <button class="btn" type="submit">Sync Device Data</button>
+          </form>
+        </aside>
+      </section>
+
+      <section class="section split">
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title" id="games-title">Educational Mini Games</h2>
+              <p class="section-copy">Quick attention and breathing resets that also count toward task progress.</p>
+            </div>
+          </div>
+          <div id="mini-games-list" class="list"></div>
+        </article>
+        <aside class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title" id="videos-title">Personalized Videos</h2>
+              <p class="section-copy">Recommended from your current risk pattern and recent wellbeing state.</p>
+            </div>
+          </div>
+          <div id="videos-list" class="list"></div>
+        </aside>
       </section>
 
       <section class="section split">
@@ -93,6 +200,27 @@
         <article class="card">
           <div class="section-header">
             <div>
+              <h2 class="section-title">Daily Check-In</h2>
+              <p class="section-copy">Complete this short daily mental health check before or after study sessions.</p>
+            </div>
+          </div>
+          <div id="daily-checkin-wrap" class="stack"></div>
+        </article>
+        <aside class="card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Recent Daily Check-Ins</h2>
+              <p class="section-copy">Watch your short-term wellbeing and academic strain pattern.</p>
+            </div>
+          </div>
+          <div id="daily-checkin-history" class="list"></div>
+        </aside>
+      </section>
+
+      <section class="section split">
+        <article class="card">
+          <div class="section-header">
+            <div>
               <h2 class="section-title">Assigned Sessions</h2>
               <p class="section-copy">Your appointment history and direct counselor links.</p>
             </div>
@@ -114,6 +242,7 @@
         </aside>
       </section>
     </div>
+    <script type="module" src="/js/mobile-shell.js"></script>
     <script type="module" src="/js/dashboard.js"></script>
   </body>
 </html>

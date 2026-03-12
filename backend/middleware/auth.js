@@ -10,7 +10,7 @@ const roleModelMap = {
   counselor: Counselor,
   admin: Admin
 };
-
+  
 async function protect(req, res, next) {
   try {
     const authorization = req.headers.authorization || '';

@@ -1,4 +1,5 @@
 const SESSION_KEY = 'pfadsplus.session';
+const LANGUAGE_KEY = 'pfadsplus.language';
 
 export function getSession() {
   try {
@@ -28,6 +29,14 @@ export function getToken() {
 
 export function getUser() {
   return getSession()?.user || null;
+}
+
+export function getPreferredLanguage() {
+  return localStorage.getItem(LANGUAGE_KEY) || 'en';
+}
+
+export function setPreferredLanguage(language) {
+  localStorage.setItem(LANGUAGE_KEY, language);
 }
 
 export function requireAuth(allowedRoles) {
@@ -103,6 +112,20 @@ export function severityClass(value = '') {
 
 export function conversationRoomId(studentId, counselorId) {
   return `student:${studentId}:counselor:${counselorId}`;
+}
+
+export function emitAnalyticsEvent(name, detail = {}) {
+  const payload = {
+    name,
+    detail,
+    createdAt: new Date().toISOString()
+  };
+
+  window.dispatchEvent(new CustomEvent('pfads:analytics', { detail: payload }));
+
+  if (typeof window.__pfadsAnalytics?.track === 'function') {
+    window.__pfadsAnalytics.track(name, detail);
+  }
 }
 
 export async function loadCurrentUser() {

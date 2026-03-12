@@ -2,14 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Support Chat | PFADS+</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#020617" />
+    <title>AI Support Chat | MindGuard</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
   <body>
     <div class="page-shell">
       <header class="topbar">
-        <a class="brand" href="/dashboard.html"><span class="brand-mark">P+</span><span>PFADS+</span></a>
+        <a class="brand" href="/dashboard.html"><span class="brand-mark">MG</span><span>MindGuard</span></a>
         <nav class="nav-links">
           <a class="nav-link" href="/dashboard.html">Dashboard</a>
           <a class="nav-link active" href="/ai-chat.html">AI Chat</a>
@@ -18,40 +21,115 @@
         </nav>
       </header>
 
-      <section class="chat-layout">
-        <aside class="card stack">
-          <div>
-            <span class="eyebrow">Voice-enabled AI Support</span>
-            <h1 class="page-title">Local mental health assistant</h1>
-            <p class="section-copy">Use text or speech. The assistant can suggest coping strategies and recommend counselor escalation.</p>
-          </div>
-          <div class="list-item">
-            <h3>Voice Controls</h3>
+      <section class="chat-layout chat-layout-modern">
+        <aside class="stack">
+          <article class="card hero-card">
             <div class="button-row">
-              <button class="btn" id="voice-input-button" type="button">Start Voice Input</button>
+              <span class="eyebrow">LLM-backed Student Support</span>
+              <span class="model-badge" id="model-source">Local mentor mode</span>
+            </div>
+            <h1 class="page-title" id="chat-heading">A modern support assistant for study and wellbeing</h1>
+            <p class="section-copy" id="chat-subheading">
+              Talk in text or voice, switch display language, and use the 3-minute self-introduction tool to surface student support needs.
+            </p>
+            <div class="support-pills">
+              <span class="support-pill">Voice</span>
+              <span class="support-pill">Multilingual</span>
+              <span class="support-pill">Needs analysis</span>
+            </div>
+          </article>
+
+          <article class="card stack">
+            <div class="button-row">
+              <div>
+                <h2 class="section-title" id="mentor-title">Mentor contact</h2>
+                <p class="section-copy">Your assigned counsellor stays visible here as a mentor figure.</p>
+              </div>
+            </div>
+            <div id="mentor-panel"></div>
+          </article>
+
+          <article class="card stack">
+            <div class="button-row">
+              <div>
+                <h2 class="section-title" id="voice-controls-title">Voice and language</h2>
+                <p class="section-copy">Start recording manually, stop when ready, then let the assistant transcribe and respond.</p>
+              </div>
+            </div>
+            <label class="field-label" for="language-selector">Language</label>
+            <select id="language-selector" aria-label="Choose display language"></select>
+            <div class="button-row">
+              <button class="btn" id="voice-input-button" type="button">Start Voice Chat</button>
+              <button class="btn-soft" id="voice-stop-button" type="button" disabled>Stop Recording</button>
               <button class="btn-soft" id="voice-output-button" type="button">Read Last Reply</button>
             </div>
+            <label class="toggle-row" for="auto-read-toggle">
+              <input id="auto-read-toggle" type="checkbox" />
+              <span>Auto-read AI replies after voice messages</span>
+            </label>
             <p class="small muted" id="voice-status">Browser speech APIs are idle.</p>
-          </div>
-          <div class="list-item">
-            <h3>AI Response Notes</h3>
+            <div class="voice-preview" id="voice-preview">Voice transcript preview will appear here.</div>
+          </article>
+
+          <article class="card stack">
+            <div class="button-row">
+              <div>
+                <h2 class="section-title" id="intro-title">3-minute self-introduction</h2>
+                <p class="section-copy">
+                  Record a short introduction, convert it to text, then run needs analysis to identify pressure areas and urgency.
+                </p>
+              </div>
+              <span class="timer-pill" id="intro-timer">00:00 / 03:00</span>
+            </div>
+            <div class="button-row">
+              <button class="btn" id="intro-record-button" type="button">Start Recording</button>
+              <button class="btn-soft" id="intro-stop-button" type="button" disabled>Stop</button>
+              <button class="btn-soft" id="intro-analyze-button" type="button">Analyze Needs</button>
+            </div>
+            <p class="small muted" id="intro-status">Audio capture is ready.</p>
+            <label class="field-label" for="intro-transcript">Transcript</label>
+            <textarea
+              id="intro-transcript"
+              rows="7"
+              placeholder="Your transcript will appear here. You can also edit or type it manually before analysis."
+            ></textarea>
+            <audio id="intro-audio" class="audio-preview" controls hidden></audio>
+            <div class="analysis-card" id="intro-analysis">
+              <p class="muted small">No self-introduction analysis yet.</p>
+            </div>
+          </article>
+
+          <article class="card stack">
+            <div>
+              <h2 class="section-title" id="coping-title">Recommended coping steps</h2>
+              <p class="section-copy">The assistant updates these based on your latest message and risk context.</p>
+            </div>
             <div id="coping-list" class="list"></div>
-          </div>
+          </article>
         </aside>
 
-        <article class="card chat-window">
-          <div>
-            <h2 class="section-title">Conversation</h2>
-            <p class="section-copy" id="sentiment-state">The assistant will analyze emotional tone in each message.</p>
+        <article class="card chat-window chat-stage">
+          <div class="chat-header-bar">
+            <div>
+              <h2 class="section-title">Conversation</h2>
+              <p class="section-copy" id="sentiment-state">The assistant analyzes each message for emotional tone and support urgency.</p>
+            </div>
+            <span class="topic-pill" id="topic-pill">Topic: support</span>
           </div>
-          <div class="chat-messages" id="ai-messages"></div>
-          <div class="chat-input-row">
-            <input id="ai-input" placeholder="Tell the assistant how you are feeling..." />
-            <button class="btn" id="send-ai-message" type="button">Send</button>
+          <div class="quick-prompt-grid" id="quick-prompt-grid"></div>
+          <div class="chat-messages" id="ai-messages" aria-live="polite"></div>
+          <div class="typing-indicator" id="typing-indicator" hidden>Assistant is thinking...</div>
+          <div class="chat-composer">
+            <div class="voice-preview compact" id="chat-draft-preview">No voice draft yet.</div>
+            <div class="chat-input-row">
+              <input id="ai-input" placeholder="Tell the assistant how you are feeling or what you need help with..." />
+              <button class="btn" id="send-ai-message" type="button">Send</button>
+            </div>
           </div>
         </article>
       </section>
     </div>
+    <script type="module" src="/js/mobile-shell.js"></script>
     <script type="module" src="/js/ai-chat.js"></script>
   </body>
 </html>

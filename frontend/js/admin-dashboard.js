@@ -1,6 +1,7 @@
 import {
   apiFetch,
   formatDate,
+  getToken,
   loadCurrentUser,
   logout,
   requireAuth,
@@ -18,6 +19,11 @@ const alertsContainer = document.getElementById('admin-alerts');
 const heatmap = document.getElementById('district-heatmap');
 
 let charts = [];
+let socket;
+
+const CHART_TEXT = '#dbeafe';
+const CHART_GRID = 'rgba(148, 163, 184, 0.14)';
+const CHART_COLORS = ['#60a5fa', '#3b82f6', '#93c5fd', '#1d4ed8', '#38bdf8'];
 
 function buildMetricCard(label, value) {
   return `
@@ -65,10 +71,27 @@ function renderCharts(analytics) {
               analytics.radarAverages.D,
               analytics.radarAverages.E
             ],
-            backgroundColor: 'rgba(44,108,147,0.16)',
-            borderColor: '#2c6c93'
+            backgroundColor: 'rgba(96, 165, 250, 0.18)',
+            borderColor: '#60a5fa'
           }
         ]
+      },
+      options: {
+        plugins: {
+          legend: {
+            labels: {
+              color: CHART_TEXT
+            }
+          }
+        },
+        scales: {
+          r: {
+            angleLines: { color: CHART_GRID },
+            grid: { color: CHART_GRID },
+            pointLabels: { color: CHART_TEXT },
+            ticks: { color: CHART_TEXT, backdropColor: 'transparent' }
+          }
+        }
       }
     })
   );
@@ -82,9 +105,29 @@ function renderCharts(analytics) {
           {
             label: 'Students',
             data: analytics.pfadsDistribution.map((item) => item.count),
-            backgroundColor: ['#8bb8d1', '#6f9db7', '#4d7d9b', '#2c5a75']
+            backgroundColor: ['#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8']
           }
         ]
+      },
+      options: {
+        plugins: {
+          legend: {
+            labels: {
+              color: CHART_TEXT
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { color: CHART_TEXT, precision: 0 },
+            grid: { color: CHART_GRID }
+          },
+          x: {
+            ticks: { color: CHART_TEXT },
+            grid: { color: CHART_GRID }
+          }
+        }
       }
     })
   );
@@ -97,9 +140,18 @@ function renderCharts(analytics) {
         datasets: [
           {
             data: analytics.clusterDistribution.map((item) => item.count),
-            backgroundColor: ['#2c6c93', '#5f8faa', '#8aa9ba', '#35637e', '#6a8594']
+            backgroundColor: CHART_COLORS
           }
         ]
+      },
+      options: {
+        plugins: {
+          legend: {
+            labels: {
+              color: CHART_TEXT
+            }
+          }
+        }
       }
     })
   );
@@ -112,16 +164,25 @@ function renderCharts(analytics) {
         datasets: [
           {
             data: analytics.sentimentTrend.map((item) => item.count),
-            backgroundColor: ['#2b845f', '#8ba5b8', '#c14d5f']
+            backgroundColor: ['#34d399', '#94a3b8', '#fb7185']
           }
         ]
+      },
+      options: {
+        plugins: {
+          legend: {
+            labels: {
+              color: CHART_TEXT
+            }
+          }
+        }
       }
     })
   );
 }
 
 function renderHeatmap(patterns) {
-  heatmap.innerHTML = patterns
+  heatmap.innerHTML = (patterns.length ? patterns : [{ district: 'No district data yet', averageScore: 0, alerts: 0 }])
     .map((pattern) => {
       const intensity = Math.min(0.95, 0.25 + pattern.averageScore / 280 + pattern.alerts * 0.08);
       return `
@@ -136,7 +197,7 @@ function renderHeatmap(patterns) {
 }
 
 function renderStudents(students) {
-  studentsTable.innerHTML = students
+  studentsTable.innerHTML = (students.length ? students : [{ fullName: 'No students yet', district: '-', latestScore: null, latestPrediction: null }])
     .map(
       (student) => `
         <tr>
@@ -151,7 +212,7 @@ function renderStudents(students) {
 }
 
 function renderCounselors(counselors) {
-  counselorsTable.innerHTML = counselors
+  counselorsTable.innerHTML = (counselors.length ? counselors : [{ name: 'No counselors yet', specialization: [], district: '-', activeSessions: 0, workloadCapacity: 0 }])
     .map(
       (counselor) => `
         <tr>
@@ -200,8 +261,10 @@ function renderAlerts(alerts) {
   });
 }
 
-async function loadDashboard() {
-  await loadCurrentUser();
+async function loadDashboard({ refreshUser = true } = {}) {
+  if (refreshUser) {
+    await loadCurrentUser();
+  }
   const [analytics, students, counselors, alerts] = await Promise.all([
     apiFetch('/api/admin/dashboard'),
     apiFetch('/api/admin/students'),
@@ -217,4 +280,31 @@ async function loadDashboard() {
   renderAlerts(alerts.alerts.filter((alert) => !alert.resolved));
 }
 
-loadDashboard().catch((error) => showToast(error.message, 'error'));
+function setupLiveAlerts() {
+  if (socket || !window.io) {
+    return;
+  }
+
+  socket = window.io({
+    auth: {
+      token: getToken()
+    }
+  });
+
+  socket.on('alerts:new', (alert) => {
+    showToast(`New ${alert.severity} alert: ${alert.title}`);
+    loadDashboard().catch((error) => showToast(error.message, 'error'));
+  });
+
+  socket.on('alerts:resolved', () => {
+    loadDashboard().catch((error) => showToast(error.message, 'error'));
+  });
+}
+
+async function initialize() {
+  await loadCurrentUser();
+  setupLiveAlerts();
+  await loadDashboard({ refreshUser: false });
+}
+
+initialize().catch((error) => showToast(error.message, 'error'));

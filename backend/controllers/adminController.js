@@ -55,9 +55,19 @@ const getAlerts = asyncHandler(async (_req, res) => {
 });
 
 const resolveAlert = asyncHandler(async (req, res) => {
-  const alert = await Alert.findByIdAndUpdate(req.params.id, { resolved: true }, { new: true });
+  const alert = await Alert.findByIdAndUpdate(req.params.id, { resolved: true }, { new: true })
+    .populate('student', 'fullName district')
+    .populate('counselor', 'name district email mobileNumber');
   if (!alert) {
     return res.status(404).json({ message: 'Alert not found' });
+  }
+
+  const io = req.app.get('io');
+  if (io) {
+    io.to('role:admin').emit('alerts:resolved', alert);
+    if (alert.counselor?._id) {
+      io.to(`user:${alert.counselor._id.toString()}`).emit('alerts:resolved', alert);
+    }
   }
 
   res.json({

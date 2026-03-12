@@ -1,112 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PFADS+ | Dropout Prevention and Mental Health Platform</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#020617" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MindGuard" />
+    <title>MindGuard - Student Mental Wellness Platform</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/icon.svg" />
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   </head>
-  <body>
-    <div class="page-shell">
-      <header class="topbar">
+  <body class="landing-body">
+    <div id="hero-scene" class="hero-scene" aria-hidden="true"></div>
+    <div class="scene-overlay" aria-hidden="true"></div>
+
+    <div class="landing-scroll">
+      <header class="landing-topbar">
         <a class="brand" href="/index.html">
-          <span class="brand-mark">P+</span>
-          <span>PFADS+</span>
+          <span class="brand-mark">MG</span>
+          <span>MindGuard</span>
         </a>
         <nav class="nav-links">
-          <a class="nav-link" href="/student-login.html">Student Login</a>
-          <a class="nav-link" href="/counselor-login.html">Counselor Login</a>
-          <a class="nav-link" href="/admin-login.html">Admin Login</a>
+          <a class="nav-link" href="/student-login.html">Student</a>
+          <a class="nav-link" href="/counselor-login.html">Counsellor</a>
+          <a class="nav-link" href="/admin-login.html">Admin</a>
         </nav>
       </header>
 
-      <section class="hero">
-        <article class="hero-card">
-          <span class="eyebrow">Psychological Factors Associated with Academic Dropout Prevention</span>
-          <h1>Detect distress early. Route students to support before they disengage.</h1>
-          <p>
-            PFADS+ combines a 50-question psychological assessment, local AI risk scoring, sentiment monitoring,
-            real-time counselor chat, resilience training, and institutional analytics in one modular system that
-            runs entirely on localhost.
-          </p>
-          <div class="button-row">
-            <a class="btn" href="/student-register.html">Register as Student</a>
-            <a class="btn-soft" href="/counselor-register.html">Join as Counselor</a>
+      <section class="mindguard-hero">
+        <div class="hero">
+          <h1>MindGuard</h1>
+          <p>Understand Your Mind. Strengthen Your Future.</p>
+          <div class="hero-cta">
+            <a class="btn landing-btn" href="/student-register.html">Start Your Mind Discovery</a>
+            <a class="btn-soft landing-btn" href="/student-login.html">Open Student App</a>
           </div>
-        </article>
+        </div>
 
-        <aside class="hero-card">
-          <div class="hero-stats">
-            <div class="mini-stat">
-              <div class="metric-label">AI Modules</div>
-              <div class="metric-value">6</div>
-              <p class="small muted">Clustering, prediction, sentiment, alerts, balancing, chatbot.</p>
-            </div>
-            <div class="mini-stat">
-              <div class="metric-label">User Roles</div>
-              <div class="metric-value">4</div>
-              <p class="small muted">Students, counselors, admins, and a local mental-health assistant.</p>
-            </div>
-            <div class="mini-stat">
-              <div class="metric-label">Assessment Depth</div>
-              <div class="metric-value">50</div>
-              <p class="small muted">Five psychological sections with risk-adjusted scoring.</p>
-            </div>
-            <div class="mini-stat">
-              <div class="metric-label">Deployment Model</div>
-              <div class="metric-value">Local</div>
-              <p class="small muted">Node, MongoDB, Socket.io, and Python only. No cloud dependency.</p>
-            </div>
-          </div>
-        </aside>
+        <div class="hero-support-grid">
+          <article class="hero-support-card">
+            <span class="eyebrow">Mobile-first</span>
+            <h2>Installable on phone</h2>
+            <p>Use the same website content as an app-like mobile experience with offline shell support and full-screen mode.</p>
+          </article>
+          <article class="hero-support-card">
+            <span class="eyebrow">Student Support</span>
+            <h2>Assessment to intervention</h2>
+            <p>PFADS screening, AI risk scoring, multilingual support, voice tools, counsellor chat, and resilience training.</p>
+          </article>
+        </div>
       </section>
 
-      <section class="section">
+      <section class="landing-section">
         <div class="section-header">
           <div>
-            <h2 class="section-title">Platform Modules</h2>
-            <p class="section-copy">Built for a hackathon demo, structured for future startup hardening.</p>
+            <span class="eyebrow">Why MindGuard</span>
+            <h2 class="section-title">The website content is now shaped like a mobile app</h2>
+            <p class="section-copy">
+              Students, counsellors, and administrators use the same platform content through an app-like dark interface optimized for phones.
+            </p>
           </div>
         </div>
-        <div class="card-grid">
+        <div class="feature-tiles">
           <article class="card">
-            <h3>Student Journey</h3>
-            <p>Assessment, risk dashboard, AI voice chatbot, resilience exercises, and counselor booking.</p>
+            <h3>Student App</h3>
+            <p>PFADS assessment, daily tasks, streaks, voice self-introduction, AI mentor chat, scholarships, psychologists, and device sync hooks.</p>
           </article>
           <article class="card">
-            <h3>Counselor Workspace</h3>
-            <p>Assigned case queue, risk summaries, live messaging, and guided workload balancing.</p>
+            <h3>Counsellor Workspace</h3>
+            <p>Assigned students, live messaging, alert awareness, mentor contact, and case context adapted to smaller screens.</p>
           </article>
           <article class="card">
-            <h3>Admin Analytics</h3>
-            <p>Radar, bar, pie, heatmap, district trends, alerts, and student-level screening insights.</p>
+            <h3>Admin Intelligence</h3>
+            <p>Analytics, alerts, district heatmaps, risk distribution, and institution-wide screening insights in a mobile-safe layout.</p>
           </article>
           <article class="card">
-            <h3>Safety Logic</h3>
-            <p>Negative sentiment alerts, very high PFADS escalation, repeated distress detection, and JWT-protected APIs.</p>
+            <h3>Voice + AI</h3>
+            <p>LLM-backed chat, browser speech input and output, and transcript-based needs detection for short self-introductions.</p>
           </article>
         </div>
       </section>
 
-      <section class="section">
-        <div class="split">
+      <section class="landing-section">
+        <div class="section-header">
+          <div>
+            <span class="eyebrow">Role Access</span>
+            <h2 class="section-title">Launch the right experience</h2>
+          </div>
+        </div>
+        <div class="role-grid">
           <article class="card">
-            <h3>For Students</h3>
-            <p>Register, complete PFADS, see your risk profile, book counseling, and use voice-enabled AI support.</p>
+            <h3>Students</h3>
+            <p>Register, complete assessment, get support, and track wellbeing from a phone-friendly dashboard.</p>
             <div class="button-row">
-              <a class="btn" href="/student-register.html">Student Registration</a>
-              <a class="btn-ghost" href="/student-login.html">Student Login</a>
+              <a class="btn" href="/student-register.html">Create account</a>
+              <a class="btn-ghost" href="/student-login.html">Login</a>
             </div>
           </article>
           <article class="card">
-            <h3>For Institutions</h3>
-            <p>Track trends by district, detect clusters, monitor unresolved alerts, and understand dropout probability distribution.</p>
+            <h3>Counsellors</h3>
+            <p>Review cases, respond in real time, and stay reachable as mentor figures with call, email, and chat links.</p>
             <div class="button-row">
-              <a class="btn-soft" href="/admin-login.html">Open Admin Console</a>
+              <a class="btn" href="/counselor-register.html">Register</a>
+              <a class="btn-ghost" href="/counselor-login.html">Login</a>
             </div>
           </article>
+          <article class="card">
+            <h3>Administrators</h3>
+            <p>Monitor student trends, alert load, PFADS severity, and dropout risk with mobile-safe analytics views.</p>
+            <div class="button-row">
+              <a class="btn" href="/admin-login.html">Admin console</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="landing-section mobile-note">
+        <div class="card">
+          <span class="eyebrow">Install on Mobile</span>
+          <h2 class="section-title">Add MindGuard to the home screen</h2>
+          <p class="section-copy">
+            Open the site on a phone browser, then use “Add to Home Screen” to launch it like a mobile app. The interface now uses safe-area spacing, touch-friendly controls, and an installable manifest.
+          </p>
         </div>
       </section>
     </div>
+
+    <script type="module" src="/js/mobile-shell.js"></script>
+    <script src="/js/landing-scene.js"></script>
   </body>
 </html>
