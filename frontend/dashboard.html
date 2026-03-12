@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#020617" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#020617">
     <title>Student Dashboard | MindGuard</title>
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/css/styles.css" />
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/assets/icon.svg">
+    <link rel="stylesheet" href="/css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
@@ -29,7 +30,7 @@
             <h1 class="page-title">Your mental health and dropout risk dashboard</h1>
           </div>
           <div class="button-row">
-            <select id="language-selector"></select>
+            <select id="language-selector" aria-label="Language" title="Language"></select>
             <a class="btn" href="/assessment.html">Retake PFADS</a>
             <a class="btn-soft" href="/ai-chat.html">Open AI Support</a>
           </div>
@@ -47,7 +48,7 @@
           </div>
           <div id="mentor-card" class="stack"></div>
         </article>
-        <aside class="card">
+        <aside class="card" aria-label="Scholarship support">
           <div class="section-header">
             <div>
               <h2 class="section-title" id="scholarship-title">Scholarship Support</h2>
@@ -88,7 +89,7 @@
           </div>
           <div id="assigned-task-list" class="list"></div>
         </article>
-        <aside class="card">
+        <aside class="card" aria-label="Evaluation and device integration">
           <div class="section-header">
             <div>
               <h2 class="section-title" id="device-title">Evaluation and Device Integration</h2>
@@ -99,44 +100,44 @@
           <div id="device-summary" class="list-item"></div>
           <form id="device-sync-form" class="stack">
             <div class="field">
-              <label>Source</label>
-              <input name="source" placeholder="Google Fit, Apple Health, Fitbit, Manual" required />
+              <label for="device-source">Source</label>
+              <input id="device-source" type="text" name="source" placeholder="Google Fit, Apple Health, Fitbit, Manual" required>
             </div>
             <div class="field">
-              <label>Hook Type</label>
-              <input name="hookType" placeholder="manual / google_fit / apple_health / fitbit / wear_os" />
+              <label for="device-hook-type">Hook Type</label>
+              <input id="device-hook-type" type="text" name="hookType" placeholder="manual / google_fit / apple_health / fitbit / wear_os">
             </div>
             <div class="field">
-              <label>Steps</label>
-              <input type="number" name="steps" min="0" value="0" />
+              <label for="device-steps">Steps</label>
+              <input id="device-steps" type="number" name="steps" min="0" value="0">
             </div>
             <div class="field">
-              <label>Sleep Hours</label>
-              <input type="number" step="0.1" name="sleepHours" min="0" value="0" />
+              <label for="device-sleep-hours">Sleep Hours</label>
+              <input id="device-sleep-hours" type="number" step="0.1" name="sleepHours" min="0" value="0">
             </div>
             <div class="field">
-              <label>Focus Minutes</label>
-              <input type="number" name="focusMinutes" min="0" value="0" />
+              <label for="device-focus-minutes">Focus Minutes</label>
+              <input id="device-focus-minutes" type="number" name="focusMinutes" min="0" value="0">
             </div>
             <div class="field">
-              <label>Screen Time Minutes</label>
-              <input type="number" name="screenTimeMinutes" min="0" value="0" />
+              <label for="device-screen-time-minutes">Screen Time Minutes</label>
+              <input id="device-screen-time-minutes" type="number" name="screenTimeMinutes" min="0" value="0">
             </div>
             <div class="field">
-              <label>Active Minutes</label>
-              <input type="number" name="activeMinutes" min="0" value="0" />
+              <label for="device-active-minutes">Active Minutes</label>
+              <input id="device-active-minutes" type="number" name="activeMinutes" min="0" value="0">
             </div>
             <div class="field">
-              <label>Idle Minutes</label>
-              <input type="number" name="idleMinutes" min="0" value="0" />
+              <label for="device-idle-minutes">Idle Minutes</label>
+              <input id="device-idle-minutes" type="number" name="idleMinutes" min="0" value="0">
             </div>
             <div class="field">
-              <label>Study Screen Minutes</label>
-              <input type="number" name="studyScreenMinutes" min="0" value="0" />
+              <label for="device-study-screen-minutes">Study Screen Minutes</label>
+              <input id="device-study-screen-minutes" type="number" name="studyScreenMinutes" min="0" value="0">
             </div>
             <div class="field">
-              <label>Notes</label>
-              <textarea name="notes" rows="3" placeholder="Optional sync notes"></textarea>
+              <label for="device-notes">Notes</label>
+              <textarea id="device-notes" name="notes" rows="3" placeholder="Optional sync notes"></textarea>
             </div>
             <button class="btn" type="submit">Sync Device Data</button>
           </form>
@@ -153,7 +154,7 @@
           </div>
           <div id="mini-games-list" class="list"></div>
         </article>
-        <aside class="card">
+        <aside class="card" aria-label="Personalized videos">
           <div class="section-header">
             <div>
               <h2 class="section-title" id="videos-title">Personalized Videos</h2>
@@ -174,7 +175,7 @@
           </div>
           <canvas id="pfads-chart"></canvas>
         </article>
-        <aside class="card">
+        <aside class="card" aria-label="Active alerts">
           <div class="section-header">
             <div>
               <h2 class="section-title">Active Alerts</h2>
@@ -195,7 +196,7 @@
           </div>
           <canvas id="emotion-chart"></canvas>
         </article>
-        <aside class="card">
+        <aside class="card" aria-label="Counseling request">
           <div class="section-header">
             <div>
               <h2 class="section-title">Counseling Request</h2>
@@ -204,16 +205,16 @@
           </div>
           <form id="appointment-form" class="stack">
             <div class="field">
-              <label>Preferred Support Area</label>
-              <input name="specializationNeed" placeholder="Optional. Leave blank to use dominant risk." />
+              <label for="appointment-specialization-need">Preferred Support Area</label>
+              <input id="appointment-specialization-need" type="text" name="specializationNeed" placeholder="Optional. Leave blank to use dominant risk.">
             </div>
             <div class="field">
-              <label>Preferred Date</label>
-              <input type="datetime-local" name="preferredDate" required />
+              <label for="appointment-preferred-date">Preferred Date</label>
+              <input id="appointment-preferred-date" type="datetime-local" name="preferredDate" required>
             </div>
             <div class="field">
-              <label>Notes</label>
-              <textarea name="notes" rows="4" placeholder="Tell the counselor what you need help with."></textarea>
+              <label for="appointment-notes">Notes</label>
+              <textarea id="appointment-notes" name="notes" rows="4" placeholder="Tell the counselor what you need help with."></textarea>
             </div>
             <button class="btn" type="submit">Book Session</button>
           </form>
@@ -230,7 +231,7 @@
           </div>
           <div id="daily-checkin-wrap" class="stack"></div>
         </article>
-        <aside class="card">
+        <aside class="card" aria-label="Recent daily check-ins">
           <div class="section-header">
             <div>
               <h2 class="section-title">Recent Daily Check-Ins</h2>
@@ -251,7 +252,7 @@
           </div>
           <div class="list" id="appointments-list"></div>
         </article>
-        <aside class="card">
+        <aside class="card" aria-label="Resilience training">
           <div class="section-header">
             <div>
               <h2 class="section-title">Resilience Training</h2>

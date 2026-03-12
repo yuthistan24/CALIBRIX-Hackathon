@@ -1,5 +1,45 @@
 const SESSION_KEY = 'pfadsplus.session';
 const LANGUAGE_KEY = 'pfadsplus.language';
+const API_BASE_KEY = 'pfadsplus.apiBase';
+
+export function getApiBaseUrl() {
+  try {
+    const explicit = String(window.__PFADS_API_BASE_URL || '').trim();
+    if (explicit) {
+      return explicit.replace(/\/$/, '');
+    }
+
+    const saved = String(localStorage.getItem(API_BASE_KEY) || '').trim();
+    if (saved) {
+      return saved.replace(/\/$/, '');
+    }
+  } catch (_error) {
+    // Ignore storage access issues and fall back to inferred defaults.
+  }
+
+  const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isNodePort = window.location.port === '3000';
+  if (isLocalHost && !isNodePort) {
+    // Common dev setup: frontend served from Apache (80/443), API on Node (3000).
+    return 'http://localhost:3000';
+  }
+
+  return '';
+}
+
+function resolveApiUrl(path = '') {
+  const url = String(path || '');
+  if (!url || url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+
+  const base = getApiBaseUrl();
+  if (!base) {
+    return url;
+  }
+
+  return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+}
 
 export function getSession() {
   try {
@@ -60,7 +100,7 @@ export async function apiFetch(path, options = {}) {
     headers.Authorization = `Bearer ${getToken()}`;
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(resolveApiUrl(path), {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined

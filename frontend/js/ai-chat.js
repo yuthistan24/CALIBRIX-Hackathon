@@ -366,9 +366,22 @@ async function loadAiRuntimeStatus() {
     updateModelSource('unavailable', aiRuntime.model, aiRuntime.provider);
   }
 
-  if (!aiRuntime.transcriptionAvailable && voiceStatus.textContent.includes('idle')) {
-    voiceStatus.textContent = 'Voice input uses browser speech recognition. Speak clearly for best results.';
+  if (!chatVoiceRecording) {
+    const recognitionSupported = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+    const voiceTranscriptionAvailable = Boolean(aiRuntime.transcriptionAvailable);
+    const voiceInputSupported = recognitionSupported || (canUseMediaRecorder() && voiceTranscriptionAvailable);
+
+    if (!voiceInputSupported) {
+      voiceStatus.textContent =
+        'Voice input is unavailable (no browser speech recognition and no server transcription). Use typing instead.';
+    } else if (!voiceTranscriptionAvailable && voiceStatus.textContent.includes('idle')) {
+      voiceStatus.textContent = 'Voice input uses browser speech recognition. Speak clearly for best results.';
+    } else if (voiceTranscriptionAvailable && voiceStatus.textContent.includes('idle')) {
+      voiceStatus.textContent = 'Voice input is ready. Tap Start Voice Chat.';
+    }
   }
+
+  updateChatVoiceButtons();
 }
 
 async function loadPageContext() {
@@ -398,7 +411,7 @@ function createSpeechRecognition({ continuous = false } = {}) {
   const recognition = new SpeechRecognition();
   const config = getLanguageConfig();
   recognition.lang = config.locale || 'en-IN';
-  recognition.interimResults = continuous;
+  recognition.interimResults = true;
   recognition.continuous = continuous;
   recognition.maxAlternatives = 1;
   return recognition;
@@ -499,7 +512,10 @@ async function sendMessage({ messageOverride = null, origin = 'text' } = {}) {
 }
 
 function updateChatVoiceButtons() {
-  voiceInputButton.disabled = chatVoiceRecording;
+  const recognitionSupported = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const voiceTranscriptionAvailable = Boolean(aiRuntime?.transcriptionAvailable);
+  const voiceInputSupported = recognitionSupported || (canUseMediaRecorder() && voiceTranscriptionAvailable);
+  voiceInputButton.disabled = chatVoiceRecording || !voiceInputSupported;
   voiceStopButton.disabled = !chatVoiceRecording;
 }
 
@@ -526,6 +542,10 @@ function syncChatVoiceDraft() {
 }
 
 async function transcribeRecordedVoice(blob) {
+  if (!aiRuntime?.transcriptionAvailable) {
+    return '';
+  }
+
   try {
     const audioBase64 = await blobToBase64(blob);
     const result = await apiFetch('/api/students/voice/transcribe', {
@@ -608,6 +628,17 @@ async function startMessageVoiceRecording() {
   }
 
   const recognitionSupported = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const voiceTranscriptionAvailable = Boolean(aiRuntime?.transcriptionAvailable);
+  if (!recognitionSupported && !(canUseMediaRecorder() && voiceTranscriptionAvailable)) {
+    showToast(
+      'Voice input needs browser speech recognition (Chrome) or server transcription (configure OPENAI_API_KEY/COMPATIBLE_*).',
+      'error'
+    );
+    voiceStatus.textContent = 'Voice input unavailable. Use typing instead.';
+    updateChatVoiceButtons();
+    return;
+  }
+
   if (!canUseMediaRecorder() && !recognitionSupported) {
     showToast('Voice recording is not available in this browser.', 'error');
     return;

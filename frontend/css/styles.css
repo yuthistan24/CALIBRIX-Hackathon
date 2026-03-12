@@ -98,6 +98,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(5, 11, 24, 0.7);
+  -webkit-backdrop-filter: blur(24px);
   backdrop-filter: blur(24px);
   box-shadow: var(--shadow);
 }
@@ -161,6 +162,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
+  -webkit-backdrop-filter: blur(22px);
   backdrop-filter: blur(22px);
   box-shadow: var(--shadow);
 }
@@ -888,6 +890,7 @@ td {
   border-radius: var(--radius-lg);
   border: 1px solid rgba(96, 165, 250, 0.18);
   background: rgba(6, 12, 26, 0.78);
+  -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   box-shadow: var(--shadow);
 }
@@ -907,7 +910,53 @@ td {
 .compact-header {
   margin-top: 18px;
 }
+/* Center the whole rating area */
+.rating-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 1rem 0;
+  text-align: center;
+}
 
+/* Flex-reverse allows us to use the ~ selector for "previous" stars */
+.star-rating {
+  display: flex;
+  flex-direction: row-reverse; 
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.star {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 3rem; /* Large, clickable stars */
+  color: #cbd5e1; /* Default light gray (empty) */
+  transition: color 0.2s ease, transform 0.1s ease;
+  line-height: 1;
+}
+
+/* Hover effect: Turn gold while hovering */
+.star:hover,
+.star:hover ~ .star {
+  color: #fbbf24;
+  transform: scale(1.1);
+}
+
+/* SELECTED state: Stay gold when .is-selected class is added via JS */
+.star.is-selected,
+.star.is-selected ~ .star {
+  color: #fbbf24;
+}
+
+/* Active press effect */
+.star:active {
+  transform: scale(0.9);
+}
 .compact-button {
   width: auto;
   min-width: 0;
@@ -998,7 +1047,7 @@ button.card {
   }
 
   .mindguard-hero {
-    min-height: auto;
+    min-height: 0;
     padding-top: 12px;
   }
 

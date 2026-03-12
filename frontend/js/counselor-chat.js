@@ -2,6 +2,7 @@ import {
   apiFetch,
   conversationRoomId,
   formatDate,
+  getApiBaseUrl,
   getToken,
   loadCurrentUser,
   logout,
@@ -81,11 +82,18 @@ async function initialize() {
 
   await loadMessages();
 
-  const socket = window.io({
-    auth: {
-      token: getToken()
-    }
-  });
+  const socketBaseUrl = getApiBaseUrl();
+  const socket = socketBaseUrl
+    ? window.io(socketBaseUrl, {
+        auth: {
+          token: getToken()
+        }
+      })
+    : window.io({
+        auth: {
+          token: getToken()
+        }
+      });
 
   socket.on('connect', () => {
     socket.emit('chat:join', { roomId });

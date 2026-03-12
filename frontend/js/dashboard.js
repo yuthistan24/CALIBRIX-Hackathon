@@ -11,6 +11,7 @@ import {
   showToast
 } from './api.js';
 import { startStudentSessionTracking } from './activity-tracker.js';
+import { initializeReviews } from './reviews.js';
 
 requireAuth('student');
 document.getElementById('logout-button').addEventListener('click', logout);
@@ -61,6 +62,8 @@ const CHART_TEXT = '#dbeafe';
 const CHART_GRID = 'rgba(148, 163, 184, 0.14)';
 const CHART_BLUE = '#60a5fa';
 const CHART_FILL = 'rgba(96, 165, 250, 0.18)';
+
+initializeReviews();
 
 function normalizeDashboardData(data = {}) {
   return {

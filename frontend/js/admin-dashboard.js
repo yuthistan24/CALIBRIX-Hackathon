@@ -1,6 +1,7 @@
 import {
   apiFetch,
   formatDate,
+  getApiBaseUrl,
   getToken,
   loadCurrentUser,
   logout,
@@ -285,11 +286,18 @@ function setupLiveAlerts() {
     return;
   }
 
-  socket = window.io({
-    auth: {
-      token: getToken()
-    }
-  });
+  const socketBaseUrl = getApiBaseUrl();
+  socket = socketBaseUrl
+    ? window.io(socketBaseUrl, {
+        auth: {
+          token: getToken()
+        }
+      })
+    : window.io({
+        auth: {
+          token: getToken()
+        }
+      });
 
   socket.on('alerts:new', (alert) => {
     showToast(`New ${alert.severity} alert: ${alert.title}`);
