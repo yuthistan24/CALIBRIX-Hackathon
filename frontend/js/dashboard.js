@@ -10,6 +10,7 @@ import {
   severityClass,
   showToast
 } from './api.js';
+import { startStudentSessionTracking } from './activity-tracker.js';
 
 requireAuth('student');
 document.getElementById('logout-button').addEventListener('click', logout);
@@ -43,11 +44,15 @@ const scholarshipList = document.getElementById('scholarship-list');
 const psychologistsGrid = document.getElementById('psychologists-grid');
 const taskSummary = document.getElementById('task-summary');
 const dailyTaskList = document.getElementById('daily-task-list');
+const assignedTaskList = document.getElementById('assigned-task-list');
 const deviceSummary = document.getElementById('device-summary');
+const evaluationSummary = document.getElementById('evaluation-summary');
 const deviceSyncForm = document.getElementById('device-sync-form');
 const miniGamesList = document.getElementById('mini-games-list');
 const videosList = document.getElementById('videos-list');
 const languageSelector = document.getElementById('language-selector');
+
+let stopTracking = null;
 
 let pfadsChart;
 let emotionChart;
@@ -81,14 +86,32 @@ function normalizeDashboardData(data = {}) {
       latestSync: data.deviceIntegration?.latestSync || null,
       hooks: Array.isArray(data.deviceIntegration?.hooks) ? data.deviceIntegration.hooks : []
     },
+    evaluation: {
+      status: data.evaluation?.status || 'Stable',
+      overallRiskIndex: Number(data.evaluation?.overallRiskIndex || 0),
+      engagementIndex: Number(data.evaluation?.engagementIndex || 0),
+      stabilityIndex: Number(data.evaluation?.stabilityIndex || 0),
+      behavioralVarianceIndex: Number(data.evaluation?.behavioralVarianceIndex || 0),
+      screenRiskIndex: Number(data.evaluation?.screenRiskIndex || 0),
+      sleepRiskIndex: Number(data.evaluation?.sleepRiskIndex || 0),
+      concernDrivers: Array.isArray(data.evaluation?.concernDrivers) ? data.evaluation.concernDrivers : [],
+      protectiveFactors: Array.isArray(data.evaluation?.protectiveFactors) ? data.evaluation.protectiveFactors : [],
+      recommendations: Array.isArray(data.evaluation?.recommendations) ? data.evaluation.recommendations : [],
+      summary: data.evaluation?.summary || ''
+    },
     taskSummary: {
       tasks: Array.isArray(data.taskSummary?.tasks) ? data.taskSummary.tasks : [],
+      assignedTasks: Array.isArray(data.taskSummary?.assignedTasks) ? data.taskSummary.assignedTasks : [],
       streak: Number(data.taskSummary?.streak || 0),
       averageSeconds: Number(data.taskSummary?.averageSeconds || 0),
       completionVarianceSeconds: Number(data.taskSummary?.completionVarianceSeconds || 0),
       completedCount: Number(data.taskSummary?.completedCount || 0),
       completedTodayCount: Number(data.taskSummary?.completedTodayCount || 0),
-      completionRate: Number(data.taskSummary?.completionRate || 0)
+      completionRate: Number(data.taskSummary?.completionRate || 0),
+      assignedCompletedCount: Number(data.taskSummary?.assignedCompletedCount || 0),
+      assignedPendingCount: Number(data.taskSummary?.assignedPendingCount || 0),
+      overdueAssignedCount: Number(data.taskSummary?.overdueAssignedCount || 0),
+      totalAssignedCount: Number(data.taskSummary?.totalAssignedCount || 0)
     }
   };
 }
@@ -358,6 +381,8 @@ function renderTaskSystem(data) {
     <p>Average completion time: ${formatDuration(data.taskSummary.averageSeconds)}</p>
     <p>Completion variance: ${formatDuration(data.taskSummary.completionVarianceSeconds)}</p>
     <p>Daily completion rate: ${data.taskSummary.completionRate}%</p>
+    <p>Counsellor tasks: ${data.taskSummary.assignedCompletedCount}/${data.taskSummary.totalAssignedCount} completed</p>
+    <p>Overdue counsellor tasks: ${data.taskSummary.overdueAssignedCount}</p>
   `;
 
   dailyTaskList.innerHTML = data.taskSummary.tasks
@@ -404,6 +429,75 @@ function renderTaskSystem(data) {
       await loadDashboard();
     });
   });
+
+  if (!data.taskSummary.assignedTasks.length) {
+    assignedTaskList.innerHTML = '<div class="list-item"><p>No counsellor-assigned tasks yet.</p></div>';
+    return;
+  }
+
+  assignedTaskList.innerHTML = data.taskSummary.assignedTasks
+    .map(
+      (task) => `
+        <div class="list-item">
+          <div class="button-row">
+            <span class="pill ${severityClass(task.status)}">${task.status}</span>
+            <span class="small muted">${task.dueDate ? `Due ${formatDate(task.dueDate)}` : 'No due date'}</span>
+          </div>
+          <h4>${task.title}</h4>
+          <p>${task.description || 'No description provided.'}</p>
+          <p class="small muted">
+            Priority: ${task.priority}
+            | Estimated: ${task.estimatedMinutes} min
+            ${task.counselor?.name ? `| Assigned by ${task.counselor.name}` : ''}
+          </p>
+          ${
+            task.status === 'completed'
+              ? `<p class="small muted">Completed ${task.latestCompletionAt ? formatDate(task.latestCompletionAt) : ''}</p>`
+              : `<button class="btn-soft" data-assigned-task-id="${task._id}" data-default-seconds="${task.estimatedMinutes * 60}" type="button">Mark Complete</button>`
+          }
+        </div>
+      `
+    )
+    .join('');
+
+  assignedTaskList.querySelectorAll('[data-assigned-task-id]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const durationSeconds = Number(
+        window.prompt('How many seconds did this counsellor task take?', button.dataset.defaultSeconds) ||
+          button.dataset.defaultSeconds
+      );
+
+      await apiFetch(`/api/students/assigned-tasks/${button.dataset.assignedTaskId}/complete`, {
+        method: 'POST',
+        body: {
+          durationSeconds
+        }
+      });
+      showToast('Counsellor task completed');
+      await loadDashboard();
+    });
+  });
+}
+
+function renderEvaluationSummary(data) {
+  evaluationSummary.innerHTML = `
+    <div class="button-row">
+      <span class="pill ${severityClass(data.evaluation.status)}">${data.evaluation.status}</span>
+      <span class="small muted">Overall risk ${data.evaluation.overallRiskIndex}/100</span>
+    </div>
+    <h3>End-to-end evaluation</h3>
+    <p>${data.evaluation.summary || 'No evaluation summary available yet.'}</p>
+    <div class="metric-list compact">
+      <span>Engagement: ${data.evaluation.engagementIndex}</span>
+      <span>Stability: ${data.evaluation.stabilityIndex}</span>
+      <span>Variance: ${data.evaluation.behavioralVarianceIndex}</span>
+      <span>Screen risk: ${data.evaluation.screenRiskIndex}</span>
+      <span>Sleep risk: ${data.evaluation.sleepRiskIndex}</span>
+    </div>
+    <p class="small muted">${data.evaluation.concernDrivers.join(' | ') || 'No acute concern drivers flagged.'}</p>
+    <p class="small muted">${data.evaluation.protectiveFactors.join(' | ') || 'Protective factors will appear as more data is collected.'}</p>
+    <p class="small muted">${data.evaluation.recommendations.join(' | ')}</p>
+  `;
 }
 
 function renderDeviceIntegration(data) {
@@ -414,6 +508,10 @@ function renderDeviceIntegration(data) {
       <p>Steps: ${latestSync.steps}</p>
       <p>Sleep: ${latestSync.sleepHours} hours</p>
       <p>Focus time: ${latestSync.focusMinutes} minutes</p>
+      <p>Screen time: ${latestSync.screenTimeMinutes || 0} minutes</p>
+      <p>Active minutes: ${latestSync.activeMinutes || 0}</p>
+      <p>Idle minutes: ${latestSync.idleMinutes || 0}</p>
+      <p>Study screen time: ${latestSync.studyScreenMinutes || 0} minutes</p>
       <p>${latestSync.notes || ''}</p>
       <p class="small muted">${formatDate(latestSync.createdAt)}</p>
       <p class="small muted">${data.deviceIntegration.hooks.map((hook) => `${hook.provider}: ${hook.status}`).join(' | ')}</p>
@@ -698,6 +796,7 @@ async function loadDashboard() {
   renderPsychologists(data);
   renderAlerts(data.alerts);
   renderTaskSystem(data);
+  renderEvaluationSummary(data);
   renderDeviceIntegration(data);
   renderCharts(data);
   renderAppointments(data);
@@ -743,4 +842,5 @@ deviceSyncForm.addEventListener('submit', async (event) => {
 });
 
 setupLanguageSelector();
+stopTracking = startStudentSessionTracking('dashboard');
 loadDashboard().catch((error) => showToast(error.message, 'error'));

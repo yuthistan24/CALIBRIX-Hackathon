@@ -45,13 +45,23 @@ function calculateCompletionVariance(completions) {
   };
 }
 
-function buildTaskSummary(completions) {
+function buildTaskSummary(completions, assignedTasks = []) {
   const streak = calculateTaskStreak(completions);
   const variance = calculateCompletionVariance(completions);
   const todayKey = getDateKey();
   const completionMap = new Map();
+  const assignedCompletionMap = new Map();
 
   for (const completion of completions) {
+    if (completion.sourceType === 'assigned' && completion.assignedTask) {
+      const assignedTaskId = completion.assignedTask.toString();
+      if (!assignedCompletionMap.has(assignedTaskId)) {
+        assignedCompletionMap.set(assignedTaskId, []);
+      }
+      assignedCompletionMap.get(assignedTaskId).push(completion);
+      continue;
+    }
+
     if (!completionMap.has(completion.taskId)) {
       completionMap.set(completion.taskId, []);
     }
@@ -80,6 +90,40 @@ function buildTaskSummary(completions) {
 
   const completedTodayCount = enrichedTasks.filter((task) => task.completedToday).length;
   const completionRate = dailyTasks.length ? Math.round((completedTodayCount / dailyTasks.length) * 100) : 0;
+  const now = Date.now();
+  const enrichedAssignedTasks = assignedTasks
+    .map((task) => {
+      const completionEntries = assignedCompletionMap.get(task._id.toString()) || [];
+      const completed = task.status === 'completed';
+      const overdue = !completed && task.status !== 'cancelled' && task.dueDate && new Date(task.dueDate).getTime() < now;
+      const latestCompletion = completionEntries[0] || null;
+      const averageDurationSeconds = completionEntries.length
+        ? Math.round(
+            completionEntries.reduce((sum, entry) => sum + Number(entry.durationSeconds || 0), 0) / completionEntries.length
+          )
+        : Number(task.estimatedMinutes || 0) * 60;
+
+      return {
+        ...task,
+        status: overdue ? 'overdue' : task.status,
+        overdue,
+        completedToday: completionEntries.some((entry) => entry.dateKey === todayKey) || Boolean(completed && task.completedAt && getDateKey(new Date(task.completedAt)) === todayKey),
+        completionCount: completionEntries.length,
+        latestCompletionAt: latestCompletion?.createdAt || task.completedAt || null,
+        averageDurationSeconds
+      };
+    })
+    .sort((left, right) => {
+      const leftWeight = left.status === 'overdue' ? 0 : left.status === 'assigned' ? 1 : left.status === 'in_progress' ? 2 : 3;
+      const rightWeight = right.status === 'overdue' ? 0 : right.status === 'assigned' ? 1 : right.status === 'in_progress' ? 2 : 3;
+      return leftWeight - rightWeight || new Date(left.dueDate || left.createdAt).getTime() - new Date(right.dueDate || right.createdAt).getTime();
+    });
+
+  const assignedCompletedCount = enrichedAssignedTasks.filter((task) => task.status === 'completed').length;
+  const assignedPendingCount = enrichedAssignedTasks.filter((task) =>
+    ['assigned', 'in_progress', 'overdue'].includes(task.status)
+  ).length;
+  const overdueAssignedCount = enrichedAssignedTasks.filter((task) => task.overdue).length;
 
   return {
     tasks: enrichedTasks,
@@ -88,7 +132,12 @@ function buildTaskSummary(completions) {
     completionVarianceSeconds: variance.varianceSeconds,
     completedCount: completions.length,
     completedTodayCount,
-    completionRate
+    completionRate,
+    assignedTasks: enrichedAssignedTasks,
+    assignedCompletedCount,
+    assignedPendingCount,
+    overdueAssignedCount,
+    totalAssignedCount: enrichedAssignedTasks.length
   };
 }
 

@@ -3,6 +3,7 @@ const axios = require('axios');
 const env = require('../config/env');
 const { rankedFactorsFromSections } = require('../utils/pfads');
 const { generateMentorReply } = require('./llmService');
+const { retrieveRelevantGuidance } = require('./psychologyKnowledgeService');
 
 function sigmoid(value) {
   return 1 / (1 + Math.exp(-value));
@@ -193,6 +194,10 @@ function localChat(payload) {
   const studentContext = payload.studentContext || {};
   const topic = inferChatTopic(payload.message, studentContext.dominantRisk || '');
   const config = CHAT_TOPICS[topic];
+  const guidance = retrieveRelevantGuidance({
+    message: payload.message,
+    studentContext
+  })[0];
   const chatHistory = payload.chatHistory || [];
   const assistantTurns = chatHistory.filter((entry) => entry.role === 'assistant').length;
 
@@ -217,9 +222,12 @@ function localChat(payload) {
         ? `On a scale from 1 to 10, how intense is this ${config.label} right now?`
         : `What is one realistic action you could take in the next hour to reduce this ${config.label} a little?`;
 
+  const guidanceLine = guidance?.guidance ? guidance.guidance : '';
+  const copingStrategies = guidance?.supportSteps?.length ? guidance.supportSteps.slice(0, 3) : config.strategies;
+
   return {
-    reply: [reflection, contextNote, followUp].filter(Boolean).join(' '),
-    copingStrategies: config.strategies,
+    reply: [reflection, contextNote, guidanceLine, followUp].filter(Boolean).join(' '),
+    copingStrategies,
     escalate: sentiment.stressIndicator >= 0.7 || studentContext.latestCheckinRisk === 'High concern',
     topic: config.label,
     alertSeverity:

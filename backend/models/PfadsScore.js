@@ -4,6 +4,7 @@ const pfadsScoreSchema = new mongoose.Schema(
   {
     student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
     response: { type: mongoose.Schema.Types.ObjectId, ref: 'PfadsResponse', required: true },
+    questionnaireId: { type: String, default: 'pfads-full' },
     totalScore: { type: Number, required: true, min: 50, max: 250 },
     sectionScores: {
       A: { type: Number, required: true },

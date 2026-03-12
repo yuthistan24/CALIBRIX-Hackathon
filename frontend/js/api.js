@@ -101,10 +101,15 @@ export function formatDate(dateValue) {
 
 export function severityClass(value = '') {
   const normalized = value.toLowerCase();
-  if (normalized.includes('high')) {
+  if (normalized.includes('high') || normalized.includes('overdue') || normalized.includes('danger')) {
     return 'high';
   }
-  if (normalized.includes('moderate') || normalized.includes('medium')) {
+  if (
+    normalized.includes('moderate') ||
+    normalized.includes('medium') ||
+    normalized.includes('in_progress') ||
+    normalized.includes('negative')
+  ) {
     return 'medium';
   }
   return 'low';

@@ -20,14 +20,17 @@ const reportContainer = document.getElementById('student-report');
 
 let counselor;
 let socket;
+let currentReportStudentId = '';
 
 function renderMetrics(data) {
   document.getElementById('counselor-name').textContent = data.counselor.name;
+  const assignedTasks = Array.isArray(data.assignedTasks) ? data.assignedTasks : [];
   metrics.innerHTML = [
     { label: 'Active Sessions', value: data.counselor.activeSessions },
     { label: 'Capacity', value: data.counselor.workloadCapacity },
     { label: 'Appointments', value: data.appointments.length },
-    { label: 'Open Alerts', value: data.alerts.length }
+    { label: 'Open Alerts', value: data.alerts.length },
+    { label: 'Assigned Tasks', value: assignedTasks.length }
   ]
     .map(
       (metric) => `
@@ -41,6 +44,7 @@ function renderMetrics(data) {
 }
 
 async function loadStudentReport(studentId) {
+  currentReportStudentId = studentId;
   const report = await apiFetch(`/api/counselors/students/${studentId}/report`);
   reportContainer.innerHTML = `
     <div class="card-grid">
@@ -56,9 +60,91 @@ async function loadStudentReport(studentId) {
         <p>Risk level: ${report.latestScore?.riskLevel ?? 'Pending'}</p>
         <p>Dropout: ${report.latestPrediction?.riskLevel ?? 'Pending'}</p>
       </div>
+      <div class="list-item">
+        <h3>End-to-end Evaluation</h3>
+        <p>Status: ${report.evaluation?.status || 'Stable'}</p>
+        <p>Overall risk: ${report.evaluation?.overallRiskIndex ?? 0}/100</p>
+        <p>Engagement: ${report.evaluation?.engagementIndex ?? 0}</p>
+        <p>Stability: ${report.evaluation?.stabilityIndex ?? 0}</p>
+        <p>Variance: ${report.evaluation?.behavioralVarianceIndex ?? 0}</p>
+      </div>
+      <div class="list-item">
+        <h3>Device and Check-In</h3>
+        <p>Check-in: ${report.latestCheckin?.metrics?.riskLevel || 'No recent check-in'}</p>
+        <p>Sleep: ${report.latestDeviceSync?.sleepHours ?? 0} h</p>
+        <p>Focus: ${report.latestDeviceSync?.focusMinutes ?? 0} min</p>
+        <p>Screen time: ${report.latestDeviceSync?.screenTimeMinutes ?? 0} min</p>
+      </div>
     </div>
-    <div class="list">
-      ${(report.sentiments || [])
+    <div class="card-grid">
+      <div class="list-item">
+        <h3>Concern Drivers</h3>
+        <p class="small muted">${(report.evaluation?.concernDrivers || []).join(' | ') || 'No acute drivers flagged.'}</p>
+        <p class="small muted">${(report.evaluation?.recommendations || []).join(' | ') || 'No recommendations available.'}</p>
+      </div>
+      <div class="list-item">
+        <h3>Assign Support Task</h3>
+        <form id="assign-task-form" class="stack">
+          <div class="field">
+            <label>Task Title</label>
+            <input name="title" placeholder="Example: Complete one 20-minute focus sprint" required />
+          </div>
+          <div class="field">
+            <label>Description</label>
+            <textarea name="description" rows="3" placeholder="Add clear instructions or coping context"></textarea>
+          </div>
+          <div class="field">
+            <label>Category</label>
+            <input name="category" value="Counselor Plan" />
+          </div>
+          <div class="field">
+            <label>Priority</label>
+            <select name="priority">
+              <option value="moderate">Moderate</option>
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Estimated Minutes</label>
+            <input type="number" name="estimatedMinutes" min="1" value="10" />
+          </div>
+          <div class="field">
+            <label>Due Date</label>
+            <input type="datetime-local" name="dueDate" />
+          </div>
+          <button class="btn-soft" type="submit">Assign Task</button>
+        </form>
+      </div>
+    </div>
+    <div class="card-grid">
+      <div class="list-item">
+        <h3>Assigned Tasks</h3>
+        <div class="list">
+          ${
+            (report.assignedTasks || []).length
+              ? report.assignedTasks
+                  .map(
+                    (task) => `
+                      <div class="list-item">
+                        <div class="button-row">
+                          <span class="pill ${severityClass(task.status)}">${task.status}</span>
+                          <span class="small muted">${task.dueDate ? formatDate(task.dueDate) : 'No due date'}</span>
+                        </div>
+                        <p>${task.title}</p>
+                        <p class="small muted">${task.description || 'No description provided.'}</p>
+                      </div>
+                    `
+                  )
+                  .join('')
+              : '<p class="small muted">No tasks assigned yet.</p>'
+          }
+        </div>
+      </div>
+      <div class="list-item">
+        <h3>Recent Sentiment</h3>
+        <div class="list">
+          ${(report.sentiments || [])
         .map(
           (entry) => `
             <div class="list-item">
@@ -71,8 +157,23 @@ async function loadStudentReport(studentId) {
           `
         )
         .join('')}
+        </div>
+      </div>
     </div>
   `;
+
+  const assignTaskForm = document.getElementById('assign-task-form');
+  assignTaskForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = Object.fromEntries(new FormData(assignTaskForm).entries());
+    await apiFetch(`/api/counselors/students/${studentId}/tasks`, {
+      method: 'POST',
+      body: payload
+    });
+    showToast('Support task assigned');
+    await loadStudentReport(studentId);
+    await loadDashboard();
+  });
 }
 
 function renderAppointments(data) {
@@ -180,6 +281,13 @@ function setupLiveUpdates() {
 
   socket.on('appointments:new', () => {
     showToast('A new appointment was assigned.');
+    loadDashboard().catch((error) => showToast(error.message, 'error'));
+  });
+
+  socket.on('tasks:completed', ({ studentId }) => {
+    if (currentReportStudentId && studentId === currentReportStudentId) {
+      loadStudentReport(studentId).catch((error) => showToast(error.message, 'error'));
+    }
     loadDashboard().catch((error) => showToast(error.message, 'error'));
   });
 }

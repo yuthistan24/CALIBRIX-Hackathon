@@ -59,6 +59,7 @@ const postRoomMessage = asyncHandler(async (req, res) => {
       counselorId,
       sentiment,
       sourceType: 'counselor_chat',
+      messageText,
       io: req.app.get('io')
     });
   }

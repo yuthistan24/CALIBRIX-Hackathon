@@ -1,5 +1,5 @@
-const pfadsQuestions = require('../data/pfadsQuestions');
 const dailyCheckinQuestions = require('../data/dailyCheckinQuestions');
+const { QUESTIONNAIRE_SCALES, FULL_PFADS, getQuestionnaireById, getQuestionnaireSummaries } = require('../data/questionnaireCatalog');
 const psychologists = require('../data/psychologists');
 const scholarships = require('../data/scholarships');
 const videoRecommendations = require('../data/videoRecommendations');
@@ -8,7 +8,7 @@ const dailyTasks = require('../data/dailyTasks');
 const hospitals = require('../data/hospitals');
 const resilienceResources = require('../data/resilienceResources');
 const asyncHandler = require('../utils/asyncHandler');
-const { calculatePfadsScores } = require('../utils/pfads');
+const { calculateQuestionnaireResult } = require('../utils/pfads');
 const { getDateKey, calculateDailyCheckinMetrics } = require('../utils/dailyCheckin');
 const Student = require('../models/Student');
 const PfadsResponse = require('../models/PfadsResponse');
@@ -21,19 +21,22 @@ const SentimentLog = require('../models/SentimentLog');
 const ChatMessage = require('../models/ChatMessage');
 const Alert = require('../models/Alert');
 const TaskCompletion = require('../models/TaskCompletion');
+const AssignedTask = require('../models/AssignedTask');
 const DeviceSync = require('../models/DeviceSync');
 const StudentIntroProfile = require('../models/StudentIntroProfile');
 const { clusterPsychology, predictDropout, analyzeSentiment, generateChatResponse } = require('../services/aiService');
-const { transcribeSpeech } = require('../services/llmService');
+const { analyzeTranscriptWithLlm, getLlmRuntimeStatus, transcribeSpeech } = require('../services/llmService');
 const { assignCounselor } = require('../services/counselorAssignmentService');
 const { buildTaskSummary } = require('../services/taskInsightService');
 const { identifyStudentNeeds } = require('../services/studentNeedsService');
+const { buildStudentEvaluation } = require('../services/studentEvaluationService');
 const { getSupportCopy } = require('../services/translationService');
 const {
   findOrCreateAlert,
   evaluateAssessmentAlerts,
   evaluateSentimentAlerts,
-  evaluateChatEscalationAlert
+  evaluateChatEscalationAlert,
+  evaluateHolisticAlerts
 } = require('../services/alertService');
 const Counselor = require('../models/Counselor');
 
@@ -53,6 +56,10 @@ function buildResilienceBadges(score, streak, badges) {
     nextBadges.add('Resilience Builder');
   }
   return Array.from(nextBadges);
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, Number(value || 0)));
 }
 
 async function rollback(steps) {
@@ -77,6 +84,60 @@ async function getLatestStudentContext(studentId) {
     latestPrediction,
     latestAppointment
   };
+}
+
+async function loadEvaluationInputs(studentId) {
+  const [
+    student,
+    latestScore,
+    latestPrediction,
+    latestCheckin,
+    sentiments,
+    recentTaskCompletions,
+    latestDeviceSync,
+    latestIntroProfile,
+    assignedTasks
+  ] = await Promise.all([
+    Student.findById(studentId).lean(),
+    PfadsScore.findOne({ student: studentId }).sort({ createdAt: -1 }).lean(),
+    PredictionResult.findOne({ student: studentId }).sort({ createdAt: -1 }).lean(),
+    DailyCheckin.findOne({ student: studentId }).sort({ createdAt: -1 }).lean(),
+    SentimentLog.find({ student: studentId }).sort({ createdAt: -1 }).limit(20).lean(),
+    TaskCompletion.find({ student: studentId }).sort({ createdAt: -1 }).limit(200).lean(),
+    DeviceSync.findOne({ student: studentId }).sort({ createdAt: -1 }).lean(),
+    StudentIntroProfile.findOne({ student: studentId }).sort({ createdAt: -1 }).lean(),
+    AssignedTask.find({ student: studentId }).sort({ createdAt: -1 }).limit(20).lean()
+  ]);
+
+  return {
+    student,
+    latestScore,
+    latestPrediction,
+    latestCheckin,
+    sentiments,
+    recentTaskCompletions,
+    latestDeviceSync,
+    latestIntroProfile,
+    assignedTasks
+  };
+}
+
+async function evaluateHolisticStudentState({ studentId, counselorId, io }) {
+  const inputs = await loadEvaluationInputs(studentId);
+  const taskSummary = buildTaskSummary(inputs.recentTaskCompletions, inputs.assignedTasks);
+  const evaluation = buildStudentEvaluation({
+    ...inputs,
+    taskSummary
+  });
+
+  await evaluateHolisticAlerts({
+    studentId,
+    counselorId,
+    evaluation,
+    io
+  });
+
+  return evaluation;
 }
 
 function getDeviceHooks() {
@@ -115,16 +176,54 @@ function mapPsychologists(copy) {
   }));
 }
 
-const getQuestions = asyncHandler(async (_req, res) => {
+async function evaluateShortAssessmentAlerts({ studentId, questionnaire, result, io }) {
+  const alerts = [];
+
+  if (questionnaire.type === 'pfads_section' && questionnaire.targetSection === 'A' && result.normalizedTotalScore >= 151) {
+    alerts.push(
+      await findOrCreateAlert({
+        studentId,
+        type: 'section_a_high_distress',
+        severity: result.normalizedTotalScore >= 201 ? 'high' : 'moderate',
+        title: 'Section A distress screening is elevated',
+        description: 'The emotional distress section suggests the student may need closer support.',
+        metadata: {
+          questionnaireId: questionnaire.id,
+          normalizedTotalScore: result.normalizedTotalScore
+        },
+        io
+      })
+    );
+  }
+
+  if (questionnaire.type === 'others' && result.normalizedTotalScore >= 151) {
+    alerts.push(
+      await findOrCreateAlert({
+        studentId,
+        type: 'others_screen_high_concern',
+        severity: result.normalizedTotalScore >= 201 ? 'high' : 'moderate',
+        title: 'Others wellbeing screening is elevated',
+        description: 'The additional wellbeing screening suggests stress, exhaustion, or unsupported strain.',
+        metadata: {
+          questionnaireId: questionnaire.id,
+          normalizedTotalScore: result.normalizedTotalScore
+        },
+        io
+      })
+    );
+  }
+
+  return alerts;
+}
+
+const getQuestions = asyncHandler(async (req, res) => {
+  const selectedQuestionnaire = getQuestionnaireById(req.query.questionnaireId || FULL_PFADS.id);
   res.json({
-    questionnaire: pfadsQuestions,
-    scale: [
-      { value: 1, label: 'Strongly Disagree' },
-      { value: 2, label: 'Disagree' },
-      { value: 3, label: 'Neutral' },
-      { value: 4, label: 'Agree' },
-      { value: 5, label: 'Strongly Agree' }
-    ]
+    questionnaire: selectedQuestionnaire.sections.flatMap((section) => section.questions),
+    selectedQuestionnaire,
+    questionnaires: getQuestionnaireSummaries(),
+    scale: QUESTIONNAIRE_SCALES[selectedQuestionnaire.scaleKey] || QUESTIONNAIRE_SCALES.agreement,
+    scales: QUESTIONNAIRE_SCALES
   });
 });
 
@@ -237,6 +336,11 @@ const submitDailyCheckin = asyncHandler(async (req, res) => {
     });
   }
 
+  await evaluateHolisticStudentState({
+    studentId: student._id,
+    io
+  });
+
   res.status(201).json({
     message: 'Daily check-in saved',
     checkin
@@ -249,47 +353,181 @@ const completeDailyTask = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Task not found' });
   }
 
+  const durationSeconds = Number(req.body.durationSeconds || task.estimatedMinutes * 60);
+
   const completion = await TaskCompletion.create({
     student: req.user.userId,
     taskId: task.id,
     taskTitle: task.title,
     category: task.category,
+    sourceType: task.id === 'task-mini-game' ? 'mini_game' : 'daily',
     dateKey: getDateKey(),
-    durationSeconds: Number(req.body.durationSeconds || task.estimatedMinutes * 60)
+    durationSeconds,
+    varianceFromEstimateSeconds: durationSeconds - task.estimatedMinutes * 60,
+    completionNotes: String(req.body.notes || '').trim()
   });
+
+  const student = await Student.findById(req.user.userId);
+  if (student) {
+    student.historicalEngagement = Math.min(1, Number((student.historicalEngagement * 0.85 + 0.15).toFixed(2)));
+    await student.save();
+  }
 
   const recentCompletions = await TaskCompletion.find({ student: req.user.userId })
     .sort({ createdAt: -1 })
-    .limit(20)
+    .limit(200)
     .lean();
+  const assignedTasks = await AssignedTask.find({ student: req.user.userId }).sort({ createdAt: -1 }).limit(20).lean();
+  const summary = buildTaskSummary(recentCompletions, assignedTasks);
+
+  await evaluateHolisticStudentState({
+    studentId: req.user.userId,
+    io: req.app.get('io')
+  });
 
   res.status(201).json({
     message: 'Task completion logged',
     completion,
-    summary: buildTaskSummary(recentCompletions)
+    summary
+  });
+});
+
+const completeAssignedTask = asyncHandler(async (req, res) => {
+  const assignedTask = await AssignedTask.findOne({
+    _id: req.params.taskId,
+    student: req.user.userId
+  });
+
+  if (!assignedTask) {
+    return res.status(404).json({ message: 'Assigned task not found' });
+  }
+
+  if (['completed', 'cancelled'].includes(assignedTask.status)) {
+    return res.status(400).json({ message: 'This assigned task is already closed' });
+  }
+
+  const durationSeconds = Number(req.body.durationSeconds || assignedTask.estimatedMinutes * 60);
+  assignedTask.status = 'completed';
+  assignedTask.completedAt = new Date();
+  assignedTask.completionNotes = String(req.body.notes || '').trim();
+  await assignedTask.save();
+
+  const completion = await TaskCompletion.create({
+    student: req.user.userId,
+    counselor: assignedTask.counselor,
+    assignedTask: assignedTask._id,
+    taskId: `assigned:${assignedTask._id.toString()}`,
+    taskTitle: assignedTask.title,
+    category: assignedTask.category,
+    sourceType: 'assigned',
+    dateKey: getDateKey(),
+    durationSeconds,
+    varianceFromEstimateSeconds: durationSeconds - assignedTask.estimatedMinutes * 60,
+    completionNotes: assignedTask.completionNotes
+  });
+
+  const io = req.app.get('io');
+  if (io && assignedTask.counselor) {
+    io.to(`user:${assignedTask.counselor.toString()}`).emit('tasks:completed', {
+      assignedTaskId: assignedTask._id,
+      studentId: req.user.userId
+    });
+  }
+
+  const recentCompletions = await TaskCompletion.find({ student: req.user.userId })
+    .sort({ createdAt: -1 })
+    .limit(200)
+    .lean();
+  const assignedTasks = await AssignedTask.find({ student: req.user.userId }).sort({ createdAt: -1 }).limit(20).lean();
+  const summary = buildTaskSummary(recentCompletions, assignedTasks);
+
+  await evaluateHolisticStudentState({
+    studentId: req.user.userId,
+    counselorId: assignedTask.counselor,
+    io
+  });
+
+  res.status(201).json({
+    message: 'Assigned task marked complete',
+    completion,
+    assignedTask,
+    summary
   });
 });
 
 const syncDeviceMetrics = asyncHandler(async (req, res) => {
-  const sync = await DeviceSync.create({
+  const payload = {
     student: req.user.userId,
     source: req.body.source || 'Manual device sync',
     hookType: req.body.hookType || 'manual',
+    sessionId: req.body.sessionId || null,
+    screenName: req.body.screenName || '',
+    dateKey: req.body.dateKey || getDateKey(),
     steps: Number(req.body.steps || 0),
     sleepHours: Number(req.body.sleepHours || 0),
     focusMinutes: Number(req.body.focusMinutes || 0),
-    notes: req.body.notes || ''
+    screenTimeMinutes: Number(req.body.screenTimeMinutes || 0),
+    activeMinutes: Number(req.body.activeMinutes || 0),
+    idleMinutes: Number(req.body.idleMinutes || 0),
+    studyScreenMinutes: Number(req.body.studyScreenMinutes || 0),
+    activityScore: Number(req.body.activityScore || 0),
+    notes: req.body.notes || '',
+    sourceMeta: req.body.sourceMeta || {}
+  };
+
+  const sync =
+    payload.hookType === 'web_session' && payload.sessionId
+      ? await DeviceSync.findOneAndUpdate(
+          {
+            student: req.user.userId,
+            hookType: payload.hookType,
+            sessionId: payload.sessionId
+          },
+          payload,
+          {
+            new: true,
+            upsert: true,
+            runValidators: true,
+            setDefaultsOnInsert: true
+          }
+        )
+      : await DeviceSync.create(payload);
+
+  await Student.updateOne(
+    { _id: req.user.userId },
+    {
+      $set: {
+        historicalEngagement: Math.min(
+          1,
+          Number(
+            (
+              clamp(payload.focusMinutes / 120, 0, 1) * 0.45 +
+              clamp(payload.studyScreenMinutes / 120, 0, 1) * 0.25 +
+              clamp(payload.steps / 8000, 0, 1) * 0.15 +
+              clamp((8 - Math.max(0, 8 - payload.sleepHours)) / 8, 0, 1) * 0.15
+            ).toFixed(2)
+          )
+        )
+      }
+    }
+  );
+
+  const evaluation = await evaluateHolisticStudentState({
+    studentId: req.user.userId,
+    io: req.app.get('io')
   });
 
   res.status(201).json({
     message: 'Device metrics synced',
-    sync
+    sync,
+    evaluation
   });
 });
 
 const analyzeSelfIntroduction = asyncHandler(async (req, res) => {
   const transcript = String(req.body.transcript || '').trim();
   const durationSeconds = Number(req.body.durationSeconds || 0);
+  const language = String(req.body.language || 'English').trim();
 
   if (!transcript) {
     return res.status(400).json({ message: 'Transcript is required' });
@@ -299,7 +537,11 @@ const analyzeSelfIntroduction = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Self-introduction must be 3 minutes or less' });
   }
 
-  const analysis = identifyStudentNeeds(transcript);
+  const analysis =
+    (await analyzeTranscriptWithLlm({
+      transcript,
+      language
+    })) || identifyStudentNeeds(transcript);
   const profile = await StudentIntroProfile.create({
     student: req.user.userId,
     transcript,
@@ -321,10 +563,24 @@ const analyzeSelfIntroduction = asyncHandler(async (req, res) => {
     });
   }
 
+  await evaluateHolisticStudentState({
+    studentId: req.user.userId,
+    io: req.app.get('io')
+  });
+
   res.status(201).json({
     message: 'Self-introduction analyzed',
-    profile
+    profile,
+    analysisSource: {
+      provider: analysis.provider || 'heuristic',
+      model: analysis.model || 'mindguard-keyword'
+    }
   });
+});
+
+const getAiRuntime = asyncHandler(async (_req, res) => {
+  const runtime = await getLlmRuntimeStatus();
+  res.json({ runtime });
 });
 
 const transcribeVoiceMessage = asyncHandler(async (req, res) => {
@@ -346,7 +602,8 @@ const transcribeVoiceMessage = asyncHandler(async (req, res) => {
 
   if (!transcription?.text) {
     return res.status(400).json({
-      message: 'Voice transcription is not available. Configure an OpenAI API key or use browser speech recognition.'
+      message:
+        'Voice transcription is not available. Configure an OpenAI or compatible transcription provider, or use browser speech recognition.'
     });
   }
 
@@ -358,8 +615,70 @@ const transcribeVoiceMessage = asyncHandler(async (req, res) => {
 
 const submitAssessment = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user.userId);
+  const questionnaire = getQuestionnaireById(req.body.questionnaireId || FULL_PFADS.id);
   const answers = req.body.answers;
-  const pfads = calculatePfadsScores(answers);
+  const assessmentResult = calculateQuestionnaireResult(questionnaire.id, answers);
+
+  if (questionnaire.type !== 'pfads_full') {
+    const responseDoc = await PfadsResponse.create({
+      student: student._id,
+      questionnaireId: questionnaire.id,
+      questionnaireTitle: questionnaire.title,
+      questionnaireType: questionnaire.type,
+      answers,
+      summary: {
+        totalScore: assessmentResult.totalScore,
+        normalizedTotalScore: assessmentResult.normalizedTotalScore,
+        riskLevel: assessmentResult.riskLevel,
+        sectionScores: assessmentResult.sectionScores
+      }
+    });
+
+    if (questionnaire.type === 'pfads_section' && questionnaire.targetSection) {
+      const sectionRiskMap = {
+        A: 'Emotional Distress',
+        B: 'Academic Helplessness',
+        C: 'Social Belonging Issues',
+        D: 'Family Stress Dominant',
+        E: 'Coping Resilience Deficit'
+      };
+      if (assessmentResult.normalizedTotalScore >= 151) {
+        student.dominantRisk = sectionRiskMap[questionnaire.targetSection] || student.dominantRisk;
+        await student.save();
+      }
+    }
+
+    await evaluateShortAssessmentAlerts({
+      studentId: student._id,
+      questionnaire,
+      result: assessmentResult,
+      io: req.app.get('io')
+    });
+    await evaluateHolisticStudentState({
+      studentId: student._id,
+      io: req.app.get('io')
+    });
+
+    return res.status(201).json({
+      message: `${questionnaire.title} submitted successfully`,
+      assessmentType: questionnaire.type,
+      questionnaire: {
+        id: questionnaire.id,
+        title: questionnaire.title
+      },
+      response: responseDoc,
+      score: {
+        totalScore: assessmentResult.totalScore,
+        normalizedTotalScore: assessmentResult.normalizedTotalScore,
+        sectionScores: assessmentResult.sectionScores,
+        riskLevel: assessmentResult.riskLevel
+      },
+      cluster: null,
+      prediction: null
+    });
+  }
+
+  const pfads = assessmentResult;
   const cluster = await clusterPsychology(pfads.sectionScores);
   const prediction = await predictDropout({
     totalScore: pfads.totalScore,
@@ -378,13 +697,22 @@ const submitAssessment = asyncHandler(async (req, res) => {
   try {
     responseDoc = await PfadsResponse.create({
       student: student._id,
-      answers
+      questionnaireId: questionnaire.id,
+      questionnaireTitle: questionnaire.title,
+      questionnaireType: questionnaire.type,
+      answers,
+      summary: {
+        totalScore: pfads.totalScore,
+        riskLevel: pfads.riskLevel,
+        sectionScores: pfads.sectionScores
+      }
     });
     rollbackSteps.push(() => PfadsResponse.deleteOne({ _id: responseDoc._id }));
 
     scoreDoc = await PfadsScore.create({
       student: student._id,
       response: responseDoc._id,
+      questionnaireId: questionnaire.id,
       totalScore: pfads.totalScore,
       sectionScores: pfads.sectionScores,
       riskLevel: pfads.riskLevel
@@ -432,6 +760,11 @@ const submitAssessment = asyncHandler(async (req, res) => {
     prediction,
     io
   });
+  await evaluateHolisticStudentState({
+    studentId: student._id,
+    counselorId: latestAppointment?.counselor,
+    io
+  });
 
   res.status(201).json({
     message: 'PFADS assessment submitted successfully',
@@ -456,7 +789,8 @@ const getDashboard = asyncHandler(async (req, res) => {
     alerts,
     recentTaskCompletions,
     latestDeviceSync,
-    latestIntroProfile
+    latestIntroProfile,
+    assignedTasks
   ] = await Promise.all([
     getSupportCopy(language),
     PfadsScore.findOne({ student: student._id }).sort({ createdAt: -1 }).lean(),
@@ -472,8 +806,25 @@ const getDashboard = asyncHandler(async (req, res) => {
     Alert.find({ student: student._id, resolved: false }).sort({ createdAt: -1 }).lean(),
     TaskCompletion.find({ student: student._id }).sort({ createdAt: -1 }).limit(200).lean(),
     DeviceSync.findOne({ student: student._id }).sort({ createdAt: -1 }).lean(),
-    StudentIntroProfile.findOne({ student: student._id }).sort({ createdAt: -1 }).lean()
+    StudentIntroProfile.findOne({ student: student._id }).sort({ createdAt: -1 }).lean(),
+    AssignedTask.find({ student: student._id })
+      .populate('counselor', 'name email mobileNumber')
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean()
   ]);
+  const taskSummary = buildTaskSummary(recentTaskCompletions, assignedTasks);
+  const evaluation = buildStudentEvaluation({
+    student,
+    latestScore,
+    latestPrediction,
+    latestCheckin,
+    sentiments,
+    taskSummary,
+    latestDeviceSync,
+    latestIntroProfile,
+    assignedTasks
+  });
 
   const mentorAppointment = appointments[0] || null;
   const mentorCounselor = mentorAppointment?.counselor
@@ -500,7 +851,8 @@ const getDashboard = asyncHandler(async (req, res) => {
     dailyCheckinQuestions,
     psychologists: mapPsychologists(supportCopy),
     scholarships,
-    taskSummary: buildTaskSummary(recentTaskCompletions),
+    taskSummary,
+    evaluation,
     personalizedVideos: recommendVideos(latestCluster?.dominantFactor || student.dominantRisk, latestCheckin),
     miniGames,
     deviceIntegration: {
@@ -648,10 +1000,27 @@ const postAiChat = asyncHandler(async (req, res) => {
     studentMessage: message,
     io
   });
+  await evaluateHolisticStudentState({
+    studentId: student._id,
+    counselorId: latestContext.latestAppointment?.counselor,
+    io
+  });
 
   res.json({
     sentiment,
     chat: chatReply
+  });
+});
+
+const clearAiChatHistory = asyncHandler(async (req, res) => {
+  const roomId = `ai:${req.user.userId.toString()}`;
+  await ChatMessage.deleteMany({
+    roomId,
+    student: req.user.userId
+  });
+
+  res.json({
+    message: 'AI chat history cleared'
   });
 });
 
@@ -701,7 +1070,9 @@ module.exports = {
   getTodayDailyCheckin,
   submitDailyCheckin,
   completeDailyTask,
+  completeAssignedTask,
   syncDeviceMetrics,
+  getAiRuntime,
   analyzeSelfIntroduction,
   transcribeVoiceMessage,
   submitAssessment,
@@ -709,6 +1080,7 @@ module.exports = {
   requestAppointment,
   getResources,
   postAiChat,
+  clearAiChatHistory,
   updateResilienceProgress,
   getEmotionTimeline
 };

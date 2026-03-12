@@ -80,14 +80,22 @@
           </div>
           <div id="task-summary" class="list-item"></div>
           <div id="daily-task-list" class="list"></div>
+          <div class="section-header compact-header">
+            <div>
+              <h3 class="section-title">Counsellor Tasks</h3>
+              <p class="section-copy">Assigned by your counsellor and tracked alongside daily routines.</p>
+            </div>
+          </div>
+          <div id="assigned-task-list" class="list"></div>
         </article>
         <aside class="card">
           <div class="section-header">
             <div>
-              <h2 class="section-title" id="device-title">Device Integration</h2>
-              <p class="section-copy">Sync steps, sleep, and focus time from mobile or smartwatch hooks.</p>
+              <h2 class="section-title" id="device-title">Evaluation and Device Integration</h2>
+              <p class="section-copy">Track screen time, activity, sleep, focus, and the current end-to-end student evaluation.</p>
             </div>
           </div>
+          <div id="evaluation-summary" class="list-item"></div>
           <div id="device-summary" class="list-item"></div>
           <form id="device-sync-form" class="stack">
             <div class="field">
@@ -109,6 +117,22 @@
             <div class="field">
               <label>Focus Minutes</label>
               <input type="number" name="focusMinutes" min="0" value="0" />
+            </div>
+            <div class="field">
+              <label>Screen Time Minutes</label>
+              <input type="number" name="screenTimeMinutes" min="0" value="0" />
+            </div>
+            <div class="field">
+              <label>Active Minutes</label>
+              <input type="number" name="activeMinutes" min="0" value="0" />
+            </div>
+            <div class="field">
+              <label>Idle Minutes</label>
+              <input type="number" name="idleMinutes" min="0" value="0" />
+            </div>
+            <div class="field">
+              <label>Study Screen Minutes</label>
+              <input type="number" name="studyScreenMinutes" min="0" value="0" />
             </div>
             <div class="field">
               <label>Notes</label>

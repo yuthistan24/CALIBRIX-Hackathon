@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mindguard-shell-v3';
+const CACHE_NAME = 'mindguard-shell-v5';
 const CORE_ASSETS = [
   '/',
   '/index.html',
@@ -15,6 +15,7 @@ const CORE_ASSETS = [
   '/admin-dashboard.html',
   '/css/styles.css',
   '/js/api.js',
+  '/js/activity-tracker.js',
   '/js/dashboard.js',
   '/js/admin-dashboard.js',
   '/js/counselor-dashboard.js',

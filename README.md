@@ -52,7 +52,7 @@ npm run dev
 5. If you want the upgraded chatbot to use a local LLM, start Ollama and pull the configured model:
 
 ```bash
-ollama pull llama3.2
+ollama pull qwen2.5:0.5b-instruct
 ollama serve
 ```
 
@@ -85,18 +85,22 @@ Seeded counselors are created automatically when the counselors collection is em
 ## Key modules
 
 - PFADS 50-question assessment with risk-adjusted scoring and section breakdown
+- Questionnaire library with full PFADS, separate A/B/C/D/E section assessments, and an Others wellbeing screening
 - Local AI clustering for dominant psychological profile detection
 - Dropout probability scoring based on PFADS, sentiment, and engagement factors
 - Daily mental-health check-ins with stored responses, short-term risk scoring, and alerting
-- Daily task system with streak tracking and completion-time variance analysis
+- Daily and counselor-assigned task system with streak tracking and completion-time variance analysis
 - Sentiment analysis on AI chat and counselor chat
-- Real-time alerts for severe distress, high PFADS scores, and repeated negative patterns
+- Real-time alerts for severe distress, high PFADS scores, repeated negative patterns, screen-time and sleep imbalance, and holistic risk spikes
 - Counselor workload balancing using specialization, district, and active session count
-- LLM-backed AI support with OpenAI `gpt-4o` / `gpt-4o-mini` provider support and Ollama local fallback
-- Voice transcription route for recorded chat messages when OpenAI transcription is configured
-- Voice-enabled AI support using browser SpeechRecognition, SpeechSynthesis, and a 3-minute self-introduction recorder with needs analysis
+- LLM-backed AI support with OpenAI `gpt-4o` / `gpt-4o-mini`, OpenAI-compatible providers, and Ollama local fallback
+- LLM-backed self-introduction analysis using the same real provider chain as AI chat
+- Voice transcription route for recorded chat messages when OpenAI or a compatible transcription provider is configured, with browser speech recognition fallback
+- Voice-enabled AI support using browser SpeechRecognition, SpeechSynthesis, manual start-stop recording, AI chat clearing, and a 3-minute self-introduction recorder with needs analysis
 - Multilingual support hooks for major Indian languages through the translation service
 - Psychologist directory, scholarship guidance, personalized video recommendations, mini-games, and device sync hooks
+- Automatic in-app student activity tracking for screen time, active minutes, idle minutes, and study screen time
+- End-to-end student evaluation combining PFADS, prediction, check-ins, sentiment, task adherence, and device metrics
 - Mobile-first MindGuard landing page with animated hero scene and installable PWA shell
 - Admin analytics with radar, bar, pie, and heatmap views
 
@@ -122,6 +126,7 @@ Seeded counselors are created automatically when the counselors collection is em
 ### Student
 
 - `GET /api/students/questions`
+- `GET /api/students/ai-runtime`
 - `GET /api/students/daily-checkin/questions`
 - `GET /api/students/daily-checkin`
 - `POST /api/students/daily-checkin`
@@ -131,8 +136,10 @@ Seeded counselors are created automatically when the counselors collection is em
 - `GET /api/students/emotion-timeline`
 - `POST /api/students/appointments`
 - `POST /api/students/ai-chat`
+- `DELETE /api/students/ai-chat/history`
 - `POST /api/students/voice/transcribe`
 - `POST /api/students/daily-tasks/:taskId/complete`
+- `POST /api/students/assigned-tasks/:taskId/complete`
 - `POST /api/students/device-sync`
 - `POST /api/students/self-introduction/analyze`
 - `POST /api/students/resilience`
@@ -143,6 +150,7 @@ Seeded counselors are created automatically when the counselors collection is em
 - `GET /api/counselors/appointments`
 - `PATCH /api/counselors/appointments/:id`
 - `GET /api/counselors/students/:studentId/report`
+- `POST /api/counselors/students/:studentId/tasks`
 
 ### Admin
 
@@ -173,4 +181,5 @@ Seeded counselors are created automatically when the counselors collection is em
 
 - The psychologist directory is prototype sample data intended for the hackathon build and should be replaced with institution-approved or verified entries before deployment.
 - Device integration currently exposes local sync hooks for manual, wearable, and mobile-health connectors; production deployments should wire those hooks to approved vendor APIs.
-- For a real hosted LLM path, set `LLM_PROVIDER=openai` and configure `OPENAI_API_KEY`. For a free local path, keep `LLM_PROVIDER=ollama` and run Ollama locally.
+- For a real hosted LLM path, set `LLM_PROVIDER=openai` and configure `OPENAI_API_KEY`. For an OpenAI-compatible free or self-hosted provider, set `LLM_PROVIDER=compatible` with `COMPATIBLE_BASE_URL`, `COMPATIBLE_API_KEY`, and `COMPATIBLE_MODEL`. For a free local path, keep `LLM_PROVIDER=ollama` and run Ollama locally.
+- The app now grounds LLM prompts with a public psychological guidance corpus in `backend/data/psychologicalKnowledgeBase.js`. Training a new model on private mental-health records should only be done with explicit legal approval, de-identification, and clinical governance.

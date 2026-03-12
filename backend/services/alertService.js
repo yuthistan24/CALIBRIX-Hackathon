@@ -253,9 +253,91 @@ async function evaluateChatEscalationAlert({ studentId, counselorId, chatReply, 
   ];
 }
 
+async function evaluateHolisticAlerts({ studentId, counselorId, evaluation, io }) {
+  if (!evaluation) {
+    return [];
+  }
+
+  const alerts = [];
+
+  if (evaluation.overallRiskIndex >= 78) {
+    alerts.push(
+      await findOrCreateAlert({
+        studentId,
+        counselorId,
+        type: 'holistic_high_risk',
+        severity: 'high',
+        title: 'Holistic risk evaluation indicates urgent follow-up',
+        description: evaluation.summary,
+        metadata: {
+          overallRiskIndex: evaluation.overallRiskIndex,
+          concernDrivers: evaluation.concernDrivers
+        },
+        io
+      })
+    );
+  } else if (evaluation.overallRiskIndex >= 58) {
+    alerts.push(
+      await findOrCreateAlert({
+        studentId,
+        counselorId,
+        type: 'holistic_moderate_risk',
+        severity: 'moderate',
+        title: 'Holistic risk evaluation indicates closer monitoring',
+        description: evaluation.summary,
+        metadata: {
+          overallRiskIndex: evaluation.overallRiskIndex,
+          concernDrivers: evaluation.concernDrivers
+        },
+        io
+      })
+    );
+  }
+
+  if (evaluation.screenRiskIndex >= 68 && evaluation.sleepRiskIndex >= 55) {
+    alerts.push(
+      await findOrCreateAlert({
+        studentId,
+        counselorId,
+        type: 'screen_sleep_imbalance',
+        severity: evaluation.sleepRiskIndex >= 70 ? 'high' : 'moderate',
+        title: 'Screen time and sleep imbalance detected',
+        description: 'High screen time combined with low sleep may be worsening concentration and emotional strain.',
+        metadata: {
+          screenTimeMinutes: evaluation.screenTimeMinutes,
+          sleepHours: evaluation.sleepHours
+        },
+        io
+      })
+    );
+  }
+
+  if (evaluation.overdueAssignedCount >= 2 || (evaluation.engagementIndex <= 35 && evaluation.behavioralVarianceIndex >= 45)) {
+    alerts.push(
+      await findOrCreateAlert({
+        studentId,
+        counselorId,
+        type: 'task_engagement_drop',
+        severity: evaluation.overdueAssignedCount >= 3 ? 'high' : 'moderate',
+        title: 'Task engagement drop detected',
+        description: 'Task completion and behavioral consistency suggest the student may need a structured intervention plan.',
+        metadata: {
+          overdueAssignedCount: evaluation.overdueAssignedCount,
+          engagementIndex: evaluation.engagementIndex,
+          behavioralVarianceIndex: evaluation.behavioralVarianceIndex
+        },
+        io
+      })
+    );
+  }
+
+  return alerts;
+}
+
 module.exports = {
   findOrCreateAlert,
   evaluateAssessmentAlerts,
   evaluateSentimentAlerts,
-  evaluateChatEscalationAlert
+  evaluateChatEscalationAlert,
+  evaluateHolisticAlerts
 };

@@ -10,6 +10,7 @@ import {
   severityClass,
   showToast
 } from './api.js';
+import { startStudentSessionTracking } from './activity-tracker.js';
 
 requireAuth('student');
 document.getElementById('logout-button').addEventListener('click', logout);
@@ -60,6 +61,7 @@ const mentorPanel = document.getElementById('mentor-panel');
 const modelSource = document.getElementById('model-source');
 const topicPill = document.getElementById('topic-pill');
 const typingIndicator = document.getElementById('typing-indicator');
+const clearChatButton = document.getElementById('clear-chat-button');
 const introRecordButton = document.getElementById('intro-record-button');
 const introStopButton = document.getElementById('intro-stop-button');
 const introAnalyzeButton = document.getElementById('intro-analyze-button');
@@ -96,6 +98,8 @@ let introRecorder = null;
 let introStream = null;
 let introChunks = [];
 let introAudioUrl = '';
+let stopTracking = null;
+let aiRuntime = null;
 
 function escapeHtml(value = '') {
   return String(value)
@@ -129,7 +133,8 @@ function updateModelSource(source = 'idle', model = '', provider = '') {
     idle: 'LLM standby',
     llm: model ? `${provider || 'Live LLM'} · ${model}` : 'Live LLM',
     ai_service: 'AI service fallback',
-    heuristic: 'Local fallback'
+    heuristic: 'Local fallback',
+    unavailable: model ? `${provider || 'LLM'} unavailable · ${model}` : 'LLM unavailable'
   };
   modelSource.textContent = labels[source] || labels.idle;
 }
@@ -326,6 +331,40 @@ async function loadHistory() {
     );
   });
   renderWelcomeState();
+}
+
+async function clearConversation() {
+  await apiFetch('/api/students/ai-chat/history', {
+    method: 'DELETE'
+  });
+  messagesContainer.innerHTML = '';
+  renderWelcomeState();
+  renderStrategies();
+  lastAiReply = '';
+  lastAiModel = '';
+  topicPill.textContent = 'Topic: support';
+  updateModelSource();
+  showToast('AI chat history cleared');
+}
+
+async function loadAiRuntimeStatus() {
+  const result = await apiFetch('/api/students/ai-runtime');
+  aiRuntime = result.runtime || null;
+
+  if (!aiRuntime) {
+    return;
+  }
+
+  if (aiRuntime.chatAvailable) {
+    updateModelSource('llm', aiRuntime.model, aiRuntime.provider);
+  } else {
+    updateModelSource('unavailable', aiRuntime.model, aiRuntime.provider);
+    showToast(aiRuntime.details, 'error');
+  }
+
+  if (!aiRuntime.transcriptionAvailable && voiceStatus.textContent.includes('idle')) {
+    voiceStatus.textContent = `${aiRuntime.details} Voice transcription will rely on browser speech recognition or manual transcript editing.`;
+  }
 }
 
 async function loadPageContext() {
@@ -526,6 +565,15 @@ function createChatVoiceRecognition() {
   recognition.onend = () => {
     chatVoiceInterimTranscript = '';
     syncChatVoiceDraft();
+    if (chatVoiceRecording) {
+      window.setTimeout(() => {
+        try {
+          recognition.start();
+        } catch (_error) {
+          // Ignore restart failures on browsers that auto-stop recognition.
+        }
+      }, 150);
+    }
   };
 
   return recognition;
@@ -732,6 +780,15 @@ function createIntroRecognition() {
   recognition.onend = () => {
     introInterimTranscript = '';
     syncIntroTranscriptPreview();
+    if (introRecording) {
+      window.setTimeout(() => {
+        try {
+          recognition.start();
+        } catch (_error) {
+          // Ignore restart failures while recording continues.
+        }
+      }, 150);
+    }
   };
 
   return recognition;
@@ -740,6 +797,27 @@ function createIntroRecognition() {
 function updateIntroButtons() {
   introRecordButton.disabled = introRecording;
   introStopButton.disabled = !introRecording;
+}
+
+async function transcribeSelfIntroductionIfNeeded() {
+  if (introTranscript.value.trim() || !introChunks.length) {
+    return;
+  }
+
+  const blob = new Blob(introChunks, { type: introRecorder?.mimeType || 'audio/webm' });
+  try {
+    introStatus.textContent = 'Transcribing your self-introduction...';
+    const transcript = await transcribeRecordedVoice(blob);
+    if (transcript) {
+      introTranscript.value = transcript;
+      introStatus.textContent = 'Self-introduction transcript captured. Review it before analysis.';
+      return;
+    }
+  } catch (_error) {
+    // Fall back to manual transcript editing when backend transcription is unavailable.
+  }
+
+  introStatus.textContent = 'No automatic transcript was captured. You can edit the transcript manually before analysis.';
 }
 
 async function stopSelfIntroduction({ autoStopped = false } = {}) {
@@ -784,6 +862,7 @@ async function stopSelfIntroduction({ autoStopped = false } = {}) {
     ? 'Recording stopped automatically at 3 minutes. Review the transcript and analyze when ready.'
     : 'Recording stopped. Review the transcript and analyze when ready.';
   updateIntroButtons();
+  await transcribeSelfIntroductionIfNeeded();
   emitAnalyticsEvent('student_self_intro_stopped', {
     durationSeconds: introDurationSeconds,
     autoStopped
@@ -885,7 +964,8 @@ async function analyzeSelfIntroduction() {
       method: 'POST',
       body: {
         transcript,
-        durationSeconds: introDurationSeconds
+        durationSeconds: introDurationSeconds,
+        language: getLanguageConfig().replyLanguage
       }
     });
 
@@ -909,7 +989,7 @@ async function initialize() {
   updateIntroTimer(0);
   updateVoiceDraft('');
   renderStrategies();
-  await Promise.all([loadHistory(), loadPageContext()]);
+  await Promise.all([loadHistory(), loadPageContext(), loadAiRuntimeStatus()]);
 }
 
 sendButton.addEventListener('click', () => {
@@ -941,5 +1021,9 @@ introStopButton.addEventListener('click', () => {
 });
 
 introAnalyzeButton.addEventListener('click', analyzeSelfIntroduction);
+clearChatButton.addEventListener('click', () => {
+  clearConversation().catch((error) => showToast(error.message, 'error'));
+});
 
+stopTracking = startStudentSessionTracking('ai-chat');
 initialize().catch((error) => showToast(error.message, 'error'));

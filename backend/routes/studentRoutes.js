@@ -6,7 +6,9 @@ const {
   getTodayDailyCheckin,
   submitDailyCheckin,
   completeDailyTask,
+  completeAssignedTask,
   syncDeviceMetrics,
+  getAiRuntime,
   analyzeSelfIntroduction,
   transcribeVoiceMessage,
   submitAssessment,
@@ -14,6 +16,7 @@ const {
   requestAppointment,
   getResources,
   postAiChat,
+  clearAiChatHistory,
   updateResilienceProgress,
   getEmotionTimeline
 } = require('../controllers/studentController');
@@ -27,14 +30,17 @@ router.get('/daily-checkin', protect, authorize('student'), getTodayDailyCheckin
 router.get('/dashboard', protect, authorize('student'), getDashboard);
 router.get('/resources', protect, authorize('student'), getResources);
 router.get('/emotion-timeline', protect, authorize('student'), getEmotionTimeline);
+router.get('/ai-runtime', protect, authorize('student'), getAiRuntime);
 router.post('/daily-checkin', protect, authorize('student'), submitDailyCheckin);
 router.post('/daily-tasks/:taskId/complete', protect, authorize('student'), completeDailyTask);
+router.post('/assigned-tasks/:taskId/complete', protect, authorize('student'), completeAssignedTask);
 router.post('/device-sync', protect, authorize('student'), syncDeviceMetrics);
 router.post('/self-introduction/analyze', protect, authorize('student'), analyzeSelfIntroduction);
 router.post('/voice/transcribe', protect, authorize('student'), transcribeVoiceMessage);
 router.post('/assessment', protect, authorize('student'), submitAssessment);
 router.post('/appointments', protect, authorize('student'), requestAppointment);
 router.post('/ai-chat', protect, authorize('student'), postAiChat);
+router.delete('/ai-chat/history', protect, authorize('student'), clearAiChatHistory);
 router.post('/resilience', protect, authorize('student'), updateResilienceProgress);
 
 module.exports = router;

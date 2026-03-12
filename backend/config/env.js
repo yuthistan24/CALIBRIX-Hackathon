@@ -14,8 +14,11 @@ module.exports = {
     openaiApiKey: process.env.OPENAI_API_KEY || '',
     openaiModel: process.env.OPENAI_MODEL || 'gpt-4o-mini',
     openaiTranscribeModel: process.env.OPENAI_TRANSCRIBE_MODEL || 'gpt-4o-mini-transcribe',
+    compatibleBaseUrl: process.env.COMPATIBLE_BASE_URL || '',
+    compatibleApiKey: process.env.COMPATIBLE_API_KEY || '',
+    compatibleModel: process.env.COMPATIBLE_MODEL || '',
     ollamaBaseUrl: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
-    ollamaModel: process.env.OLLAMA_MODEL || 'llama3.2'
+    ollamaModel: process.env.OLLAMA_MODEL || 'qwen2.5:0.5b-instruct'
   },
   jwt: {
     secret: process.env.JWT_SECRET || 'change-me',
