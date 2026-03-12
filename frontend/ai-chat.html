@@ -76,26 +76,30 @@
               <div>
                 <h2 class="section-title" id="intro-title">3-minute self-introduction</h2>
                 <p class="section-copy">
-                  Record a short introduction, convert it to text, then run needs analysis to identify pressure areas and urgency.
+                  Record yourself speaking about your challenges, feelings, and what support you need. The AI will analyze your words to identify your needs and urgency level.
                 </p>
               </div>
               <span class="timer-pill" id="intro-timer">00:00 / 03:00</span>
             </div>
-            <div class="button-row">
-              <button class="btn" id="intro-record-button" type="button">Start Recording</button>
-              <button class="btn-soft" id="intro-stop-button" type="button" disabled>Stop</button>
-              <button class="btn-soft" id="intro-analyze-button" type="button">Analyze Needs</button>
+            <div class="intro-tips">
+              <p class="small muted">💡 <strong>What to say:</strong> Talk about your stress, academic challenges, family pressure, social issues, sleep problems, or anything affecting your wellbeing.</p>
             </div>
-            <p class="small muted" id="intro-status">Audio capture is ready.</p>
-            <label class="field-label" for="intro-transcript">Transcript</label>
+            <div class="button-row">
+              <button class="btn" id="intro-record-button" type="button">🎤 Start Recording</button>
+              <button class="btn-soft" id="intro-stop-button" type="button" disabled>⏹ Stop</button>
+              <button class="btn-soft" id="intro-analyze-button" type="button">🔍 Analyze Needs</button>
+              <button class="btn-ghost" id="intro-clear-button" type="button">🗑 Clear</button>
+            </div>
+            <p class="small muted" id="intro-status">Ready to record. Tap Start Recording and speak naturally.</p>
+            <label class="field-label" for="intro-transcript">Transcript (auto-generated, you can edit)</label>
             <textarea
               id="intro-transcript"
               rows="7"
-              placeholder="Your transcript will appear here. You can also edit or type it manually before analysis."
+              placeholder="Your spoken words will appear here as text. You can also type directly if you prefer not to record."
             ></textarea>
             <audio id="intro-audio" class="audio-preview" controls hidden></audio>
             <div class="analysis-card" id="intro-analysis">
-              <p class="muted small">No self-introduction analysis yet.</p>
+              <p class="muted small">📊 Your needs analysis will appear here after you tap Analyze Needs.</p>
             </div>
           </article>
 

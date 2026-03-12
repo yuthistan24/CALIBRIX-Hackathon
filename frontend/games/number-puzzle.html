@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Number Puzzle Game | MindGuard</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+body{font-family:Arial;text-align:center;background:#0f172a;color:#eff6ff;padding:20px;}
+#puzzle{margin:auto;display:grid;gap:5px;justify-content:center;margin-top:20px;}
+.tile{width:70px;height:70px;background:#3b82f6;color:white;font-size:24px;display:flex;justify-content:center;align-items:center;cursor:pointer;border-radius:8px;}
+.empty{background:#1e293b;cursor:default;}
+.info{margin:10px;font-size:18px;}
+button{padding:10px 20px;margin:10px;cursor:pointer;border:none;background:#3b82f6;color:white;border-radius:999px;}
+button:hover{background:#2563eb;}
+.back-btn{background:#6b7280;}
+.back-btn:hover{background:#4b5563;}
+</style>
+</head>
+<body>
+<h1>🔢 Number Puzzle Challenge</h1>
+<div class="info">Level: <span id="level">1</span></div>
+<div class="info">Moves: <span id="moves">0</span></div>
+<div class="info">Time: <span id="time">0</span>s</div>
+<button class="back-btn" onclick="window.location.href='/dashboard.html'">Back to Dashboard</button>
+<button onclick="startGame()">Start Game</button>
+<div id="puzzle"></div>
+<p id="message"></p>
+<script>
+let level=1;
+let size=3;
+let board=[];
+let moves=0;
+let timer;
+let time=0;
+function checkDailyLimit(){let today=new Date().toDateString();let played=localStorage.getItem("playedDate");if(played===today){document.getElementById("message").innerText="⚠ You already played today's puzzle. Come back tomorrow!";return false;}return true;}
+function setPlayedToday(){let today=new Date().toDateString();localStorage.setItem("playedDate",today);}
+function startGame(){if(!checkDailyLimit())return;setPlayedToday();moves=0;time=0;document.getElementById("moves").innerText=moves;document.getElementById("time").innerText=time;clearInterval(timer);timer=setInterval(()=>{time++;document.getElementById("time").innerText=time;},1000);size=level+2;createBoard();shuffle();drawBoard();}
+function createBoard(){board=[];for(let i=1;i<=size*size;i++){board.push(i);}board[board.length-1]=0;}
+function drawBoard(){let puzzle=document.getElementById("puzzle");puzzle.style.gridTemplateColumns=`repeat(${size},70px)`;puzzle.innerHTML="";board.forEach((num,index)=>{let tile=document.createElement("div");if(num===0){tile.className="tile empty";}else{tile.className="tile";tile.innerText=num;tile.onclick=()=>moveTile(index);}puzzle.appendChild(tile);});}
+function moveTile(index){let empty=board.indexOf(0);let valid=[index-1,index+1,index-size,index+size];if(valid.includes(empty)){[board[index],board[empty]]=[board[empty],board[index]];moves++;document.getElementById("moves").innerText=moves;drawBoard();checkWin();}}
+function shuffle(){for(let i=0;i<200;i++){let rand=Math.floor(Math.random()*board.length);moveTile(rand);}moves=0;}
+function checkWin(){for(let i=0;i<board.length-1;i++){if(board[i]!==i+1)return;}clearInterval(timer);document.getElementById("message").innerText="🎉 Puzzle Completed!";level++;document.getElementById("level").innerText=level;setTimeout(startGame,1500);}
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Card Game | MindGuard</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+body{font-family:Arial;text-align:center;background:#0f172a;color:#eff6ff;padding:20px;}
+#game{margin:auto;display:grid;grid-gap:10px;justify-content:center;margin-top:20px;}
+.card{width:80px;height:80px;background:#3b82f6;color:white;font-size:28px;display:flex;justify-content:center;align-items:center;cursor:pointer;border-radius:8px;}
+.info{margin:10px;font-size:18px;}
+button{margin:10px;padding:10px 20px;font-size:15px;cursor:pointer;border:none;background:#3b82f6;color:white;border-radius:999px;}
+button:hover{background:#2563eb;}
+.back-btn{background:#6b7280;}
+.back-btn:hover{background:#4b5563;}
+</style>
+</head>
+<body>
+<h1>🧠 Memory Card Game</h1>
+<div class="info">Level: <span id="level">1</span></div>
+<div class="info">Score: <span id="score">0</span></div>
+<div class="info">Time: <span id="time">60</span></div>
+<button class="back-btn" onclick="window.location.href='/dashboard.html'">Back to Dashboard</button>
+<button onclick="submitGame()">Submit</button>
+<button onclick="restartGame()">Restart</button>
+<div id="game"></div>
+<script>
+let allSymbols=["😊","🌟","💪","🌈","😎","🔥","🎯","🧘"];
+let level=1;
+let score=0;
+let time=60;
+let firstCard=null;
+let secondCard=null;
+let lock=false;
+let timer;
+function getLevelCards(){if(level==1)return 4;if(level==2)return 8;if(level==3)return 12;return 16;}
+function startGame(){let cardCount=getLevelCards();let symbols=[...allSymbols.slice(0,cardCount/2)];symbols=[...symbols,...symbols];symbols.sort(()=>0.5-Math.random());let game=document.getElementById("game");let cols=Math.sqrt(cardCount);game.style.gridTemplateColumns=`repeat(${cols},80px)`;game.innerHTML="";symbols.forEach(symbol=>{let card=document.createElement("div");card.className="card";card.dataset.symbol=symbol;card.innerHTML="?";card.onclick=function(){if(lock||card.innerHTML!=="?")return;card.innerHTML=symbol;if(!firstCard){firstCard=card;}else{secondCard=card;lock=true;if(firstCard.dataset.symbol===secondCard.dataset.symbol){score++;document.getElementById("score").innerText=score;firstCard=null;secondCard=null;lock=false;checkLevelComplete();}else{setTimeout(()=>{firstCard.innerHTML="?";secondCard.innerHTML="?";firstCard=null;secondCard=null;lock=false;},800);}}};game.appendChild(card);});}
+function checkLevelComplete(){let totalPairs=getLevelCards()/2;if(score===totalPairs*level){setTimeout(()=>{alert("🎉 Level "+level+" Completed!");level++;document.getElementById("level").innerText=level;startGame();},500);}}
+function startTimer(){timer=setInterval(function(){time--;document.getElementById("time").innerText=time;if(time<=0){clearInterval(timer);alert("⏰ Time Up! Click Submit to see score.");}},1000);}
+function submitGame(){clearInterval(timer);alert("🏆 Final Score: "+score+"\nLevel Reached: "+level);}
+function restartGame(){score=0;level=1;time=60;document.getElementById("score").innerText=score;document.getElementById("level").innerText=level;document.getElementById("time").innerText=time;clearInterval(timer);startGame();startTimer();}
+startGame();
+startTimer();
+</script>
+</body>
+</html>

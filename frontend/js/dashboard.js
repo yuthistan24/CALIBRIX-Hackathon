@@ -655,8 +655,7 @@ function renderEngagement(data) {
           </div>
           <h4>${game.title}</h4>
           <p>${game.description}</p>
-          <button class="btn-soft" data-game-id="${game.id}" type="button">Play</button>
-          <div id="game-${game.id}" class="small muted"></div>
+          <a class="btn-soft" href="${game.url}" target="_blank">Play Game</a>
         </div>
       `
     )
@@ -675,64 +674,6 @@ function renderEngagement(data) {
         )
         .join('')
     : '<div class="list-item"><p>No personalized videos matched yet. Complete PFADS or a daily check-in to improve recommendations.</p></div>';
-
-  miniGamesList.querySelectorAll('[data-game-id]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      const target = document.getElementById(`game-${button.dataset.gameId}`);
-      if (button.dataset.gameId === 'focus-flip') {
-        const numbers = [1, 2, 3].flatMap((value) => [value, value]).sort(() => Math.random() - 0.5);
-        target.innerHTML = numbers
-          .map(
-            (value, index) =>
-              `<button class="btn-ghost small" data-card-index="${index}" data-card-value="${value}" type="button">?</button>`
-          )
-          .join(' ');
-        let firstCard = null;
-        let matches = 0;
-        target.querySelectorAll('[data-card-index]').forEach((card) => {
-          card.addEventListener('click', async () => {
-            if (card.disabled) {
-              return;
-            }
-            card.textContent = card.dataset.cardValue;
-            if (!firstCard) {
-              firstCard = card;
-              return;
-            }
-            if (firstCard.dataset.cardValue === card.dataset.cardValue && firstCard !== card) {
-              firstCard.disabled = true;
-              card.disabled = true;
-              matches += 1;
-              firstCard = null;
-              if (matches === 3) {
-                showToast('Focus Flip completed');
-                await apiFetch('/api/students/daily-tasks/task-mini-game/complete', {
-                  method: 'POST',
-                  body: { durationSeconds: 180 }
-                });
-              }
-            } else {
-              const previous = firstCard;
-              firstCard = null;
-              setTimeout(() => {
-                previous.textContent = '?';
-                card.textContent = '?';
-              }, 500);
-            }
-          });
-        });
-      } else {
-        target.textContent = 'Inhale for 4 seconds, hold for 4, exhale for 6. Repeat for 3 rounds.';
-        setTimeout(async () => {
-          showToast('Breath Beat completed');
-          await apiFetch('/api/students/daily-tasks/task-mini-game/complete', {
-            method: 'POST',
-            body: { durationSeconds: 120 }
-          });
-        }, 3000);
-      }
-    });
-  });
 }
 
 function renderResources(data) {

@@ -1,14 +1,23 @@
 module.exports = [
   {
-    id: 'focus-flip',
-    title: 'Focus Flip',
-    description: 'Match pairs quickly to train sustained attention.',
-    durationMinutes: 3
+    id: 'word-search',
+    title: 'Word Search Puzzle',
+    description: 'Find mental health words to train focus and attention.',
+    durationMinutes: 3,
+    url: '/games/word-search.html'
   },
   {
-    id: 'breath-beat',
-    title: 'Breath Beat',
-    description: 'Tap in rhythm with a breathing guide to slow stress responses.',
-    durationMinutes: 2
+    id: 'number-puzzle',
+    title: 'Number Puzzle Challenge',
+    description: 'Solve sliding puzzles to improve problem-solving skills.',
+    durationMinutes: 5,
+    url: '/games/number-puzzle.html'
+  },
+  {
+    id: 'memory-card',
+    title: 'Memory Card Game',
+    description: 'Match emoji pairs to boost memory and concentration.',
+    durationMinutes: 4,
+    url: '/games/memory-card.html'
   }
 ];

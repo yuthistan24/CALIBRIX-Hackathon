@@ -70,6 +70,32 @@ If port `3000` is already occupied, the backend automatically retries the next a
   - a mobile-first dark visual system shared across dashboards, chat, auth, and analytics pages
 - The home screen launcher opens the same app content from `index.html`, so the mobile experience stays connected to the existing website flows and APIs.
 
+### Voice Features
+- **Voice Chat**: Uses browser `SpeechRecognition` API for live transcription (works offline)
+- **Self-Introduction**: 3-minute recording with automatic transcription
+  - Records audio locally (never uploaded)
+  - Converts speech to text in real-time
+  - AI analyzes needs and urgency
+  - Visible to assigned counselor
+  - Can be cleared anytime
+- **Voice Output**: Text-to-speech for AI responses
+- **No server transcription needed**: All voice processing happens in the browser
+
+### Device Integration
+- Manual device sync on dashboard for:
+  - Steps, sleep hours, focus time
+  - Screen time, active/idle minutes
+  - Study screen time
+- Data sources: Google Fit, Apple Health, Fitbit, or manual entry
+- Future: Automatic sync with device sensors
+
+### Games & Videos
+- **3 Mini-Games**: Word Search, Number Puzzle, Memory Cards
+- **6 Video Categories**: Linked to PFADS assessment sections
+  - Emotional Distress, Academic Stress, Social/Peer Support
+  - Family Stress, Coping Skills, General Wellness
+- All accessible from student dashboard
+
 ## Demo credentials
 
 - Default admin email: `admin@pfadsplus.local`

@@ -65,6 +65,7 @@ const clearChatButton = document.getElementById('clear-chat-button');
 const introRecordButton = document.getElementById('intro-record-button');
 const introStopButton = document.getElementById('intro-stop-button');
 const introAnalyzeButton = document.getElementById('intro-analyze-button');
+const introClearButton = document.getElementById('intro-clear-button');
 const introStatus = document.getElementById('intro-status');
 const introTimer = document.getElementById('intro-timer');
 const introTranscript = document.getElementById('intro-transcript');
@@ -266,19 +267,23 @@ function renderMentor(mentorCounselor) {
 
 function renderIntroAnalysis(profile) {
   if (!profile) {
-    introAnalysis.innerHTML = '<p class="muted small">No self-introduction analysis yet.</p>';
+    introAnalysis.innerHTML = '<p class="muted small">📊 Your needs analysis will appear here after you tap Analyze Needs.</p>';
     return;
   }
 
   const needs = Array.isArray(profile.needs) && profile.needs.length ? profile.needs : ['General support'];
+  const urgencyEmoji = { low: '🟢', medium: '🟡', high: '🔴' };
   introAnalysis.innerHTML = `
     <div class="button-row">
-      <span class="pill ${severityClass(profile.urgency || 'low')}">${escapeHtml(profile.urgency || 'low')}</span>
-      <span class="small muted">${formatTimer(profile.durationSeconds || 0)}</span>
+      <span class="pill ${severityClass(profile.urgency || 'low')}">${urgencyEmoji[profile.urgency] || '🟢'} ${escapeHtml(profile.urgency || 'low')} urgency</span>
+      <span class="small muted">⏱ ${formatTimer(profile.durationSeconds || 0)}</span>
     </div>
-    <h3>Needs detected</h3>
-    <p>${escapeHtml(profile.summary || 'Support needs were detected from the transcript.')}</p>
-    <p class="small muted">${escapeHtml(needs.join(', '))}</p>
+    <h3>🎯 Identified Needs</h3>
+    <p>${escapeHtml(profile.summary || 'Your support needs have been analyzed from the transcript.')}</p>
+    <div class="needs-tags">
+      ${needs.map(need => `<span class="pill low">${escapeHtml(need)}</span>`).join(' ')}
+    </div>
+    <p class="small muted">📝 This analysis is saved to your profile and visible to your assigned counselor.</p>
   `;
 }
 
@@ -359,11 +364,10 @@ async function loadAiRuntimeStatus() {
     updateModelSource('llm', aiRuntime.model, aiRuntime.provider);
   } else {
     updateModelSource('unavailable', aiRuntime.model, aiRuntime.provider);
-    showToast(aiRuntime.details, 'error');
   }
 
   if (!aiRuntime.transcriptionAvailable && voiceStatus.textContent.includes('idle')) {
-    voiceStatus.textContent = `${aiRuntime.details} Voice transcription will rely on browser speech recognition or manual transcript editing.`;
+    voiceStatus.textContent = 'Voice input uses browser speech recognition. Speak clearly for best results.';
   }
 }
 
@@ -392,9 +396,11 @@ function createSpeechRecognition({ continuous = false } = {}) {
   }
 
   const recognition = new SpeechRecognition();
-  recognition.lang = getLanguageConfig().locale;
+  const config = getLanguageConfig();
+  recognition.lang = config.locale || 'en-IN';
   recognition.interimResults = continuous;
   recognition.continuous = continuous;
+  recognition.maxAlternatives = 1;
   return recognition;
 }
 
@@ -403,17 +409,24 @@ function speakText(text) {
     return;
   }
 
+  window.speechSynthesis.cancel();
+  
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = getLanguageConfig().locale;
-  const matchedVoice = window.speechSynthesis
-    .getVoices()
-    .find((voice) => voice.lang.toLowerCase().startsWith(getLanguageConfig().locale.slice(0, 2).toLowerCase()));
+  const config = getLanguageConfig();
+  utterance.lang = config.locale || 'en-IN';
+  utterance.rate = 0.9;
+  utterance.pitch = 1.0;
+  utterance.volume = 1.0;
+  
+  const voices = window.speechSynthesis.getVoices();
+  const matchedVoice = voices.find((voice) => 
+    voice.lang.toLowerCase().startsWith(config.locale.slice(0, 2).toLowerCase())
+  );
 
   if (matchedVoice) {
     utterance.voice = matchedVoice;
   }
 
-  window.speechSynthesis.cancel();
   window.speechSynthesis.speak(utterance);
 }
 
@@ -513,18 +526,22 @@ function syncChatVoiceDraft() {
 }
 
 async function transcribeRecordedVoice(blob) {
-  const audioBase64 = await blobToBase64(blob);
-  const result = await apiFetch('/api/students/voice/transcribe', {
-    method: 'POST',
-    body: {
-      audioBase64,
-      mimeType: blob.type || 'audio/webm',
-      filename: `voice-message-${Date.now()}.webm`,
-      language: getLanguageConfig().locale
-    }
-  });
-
-  return result.transcription?.text || '';
+  try {
+    const audioBase64 = await blobToBase64(blob);
+    const result = await apiFetch('/api/students/voice/transcribe', {
+      method: 'POST',
+      body: {
+        audioBase64,
+        mimeType: blob.type || 'audio/webm',
+        filename: `voice-message-${Date.now()}.webm`,
+        language: getLanguageConfig().locale
+      }
+    });
+    return result.transcription?.text || '';
+  } catch (error) {
+    console.log('Server transcription unavailable, using browser recognition only');
+    return '';
+  }
 }
 
 function createChatVoiceRecognition() {
@@ -558,8 +575,9 @@ function createChatVoiceRecognition() {
     syncChatVoiceDraft();
   };
 
-  recognition.onerror = () => {
-    voiceStatus.textContent = 'Browser speech recognition paused. Audio will still be used for transcription if supported.';
+  recognition.onerror = (event) => {
+    console.error('Speech recognition error:', event.error);
+    voiceStatus.textContent = `Speech recognition error: ${event.error}. Audio will still be used for transcription if supported.`;
   };
 
   recognition.onend = () => {
@@ -773,8 +791,9 @@ function createIntroRecognition() {
     syncIntroTranscriptPreview();
   };
 
-  recognition.onerror = () => {
-    introStatus.textContent = 'Speech-to-text paused. You can still edit the transcript manually.';
+  recognition.onerror = (event) => {
+    console.error('Intro speech recognition error:', event.error);
+    introStatus.textContent = `Speech-to-text error: ${event.error}. You can still edit the transcript manually.`;
   };
 
   recognition.onend = () => {
@@ -807,17 +826,27 @@ async function transcribeSelfIntroductionIfNeeded() {
   const blob = new Blob(introChunks, { type: introRecorder?.mimeType || 'audio/webm' });
   try {
     introStatus.textContent = 'Transcribing your self-introduction...';
-    const transcript = await transcribeRecordedVoice(blob);
+    const audioBase64 = await blobToBase64(blob);
+    const result = await apiFetch('/api/students/voice/transcribe', {
+      method: 'POST',
+      body: {
+        audioBase64,
+        mimeType: blob.type || 'audio/webm',
+        filename: `intro-${Date.now()}.webm`,
+        language: getLanguageConfig().locale
+      }
+    });
+    const transcript = result.transcription?.text || '';
     if (transcript) {
       introTranscript.value = transcript;
       introStatus.textContent = 'Self-introduction transcript captured. Review it before analysis.';
       return;
     }
-  } catch (_error) {
-    // Fall back to manual transcript editing when backend transcription is unavailable.
+  } catch (error) {
+    console.log('Server transcription unavailable, using browser recognition');
   }
 
-  introStatus.textContent = 'No automatic transcript was captured. You can edit the transcript manually before analysis.';
+  introStatus.textContent = 'Transcript captured from browser speech recognition. You can edit it before analysis.';
 }
 
 async function stopSelfIntroduction({ autoStopped = false } = {}) {
@@ -859,8 +888,8 @@ async function stopSelfIntroduction({ autoStopped = false } = {}) {
   }
 
   introStatus.textContent = autoStopped
-    ? 'Recording stopped automatically at 3 minutes. Review the transcript and analyze when ready.'
-    : 'Recording stopped. Review the transcript and analyze when ready.';
+    ? '✅ Recording stopped at 3 minutes. Review the transcript below and tap Analyze Needs when ready.'
+    : '✅ Recording stopped. Review and edit the transcript if needed, then tap Analyze Needs.';
   updateIntroButtons();
   await transcribeSelfIntroductionIfNeeded();
   emitAnalyticsEvent('student_self_intro_stopped', {
@@ -874,6 +903,11 @@ async function startSelfIntroduction() {
     return;
   }
 
+  if (chatVoiceRecording) {
+    showToast('Stop voice chat before starting self-introduction.');
+    return;
+  }
+
   resetIntroMediaPreview();
   introChunks = [];
   introFinalTranscript = '';
@@ -884,7 +918,7 @@ async function startSelfIntroduction() {
   updateIntroTimer(0);
 
   if (!navigator.mediaDevices?.getUserMedia) {
-    introStatus.textContent = 'Audio recording is not supported in this browser. You can still type your introduction and analyze it.';
+    introStatus.textContent = '⚠️ Audio recording not supported. You can type your introduction in the text box below.';
     showToast('Audio recording is not supported in this browser.', 'error');
     return;
   }
@@ -893,7 +927,7 @@ async function startSelfIntroduction() {
     introStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     introRecorder = typeof MediaRecorder === 'function' ? new MediaRecorder(introStream) : null;
     if (!introRecorder) {
-      introStatus.textContent = 'Audio recording is not supported here. You can still use the transcript box manually.';
+      introStatus.textContent = '⚠️ Audio recording not supported. You can type your introduction manually.';
       introStream.getTracks().forEach((track) => track.stop());
       introStream = null;
       return;
@@ -923,16 +957,15 @@ async function startSelfIntroduction() {
     if (introRecognition) {
       introRecognition.start();
     } else {
-      introStatus.textContent =
-        'Recording started. Live speech-to-text is not supported in this browser, so edit the transcript manually before analysis.';
+      introStatus.textContent = '🎤 Recording... Live transcription not available. Edit the transcript manually after recording.';
     }
 
     recorder.start();
     introRecording = true;
     updateIntroButtons();
     introStatus.textContent = introRecognition
-      ? 'Recording and transcribing your self-introduction...'
-      : 'Recording your self-introduction. Add or edit the transcript manually before analysis.';
+      ? '🔴 Recording and transcribing... Speak naturally about your challenges and feelings.'
+      : '🔴 Recording audio... You can edit the transcript manually after stopping.';
 
     introTimerId = window.setInterval(() => {
       const elapsedSeconds = Math.min(180, Math.floor((Date.now() - introStartedAt) / 1000));
@@ -947,7 +980,7 @@ async function startSelfIntroduction() {
       language: getLanguageConfig().code
     });
   } catch (error) {
-    introStatus.textContent = 'Microphone access was denied. You can type your self-introduction manually instead.';
+    introStatus.textContent = '⚠️ Microphone access denied. You can type your self-introduction manually in the text box.';
     showToast(error.message || 'Unable to access the microphone.', 'error');
   }
 }
@@ -989,6 +1022,14 @@ async function initialize() {
   updateIntroTimer(0);
   updateVoiceDraft('');
   renderStrategies();
+  
+  if (window.speechSynthesis) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.getVoices();
+    };
+  }
+  
   await Promise.all([loadHistory(), loadPageContext(), loadAiRuntimeStatus()]);
 }
 
@@ -1021,6 +1062,26 @@ introStopButton.addEventListener('click', () => {
 });
 
 introAnalyzeButton.addEventListener('click', analyzeSelfIntroduction);
+
+introClearButton.addEventListener('click', () => {
+  if (introRecording) {
+    showToast('Stop recording before clearing', 'error');
+    return;
+  }
+  if (introTranscript.value.trim() && !confirm('Are you sure you want to clear your self-introduction? This cannot be undone.')) {
+    return;
+  }
+  introTranscript.value = '';
+  introFinalTranscript = '';
+  introInterimTranscript = '';
+  introDurationSeconds = 0;
+  updateIntroTimer(0);
+  resetIntroMediaPreview();
+  renderIntroAnalysis(null);
+  introStatus.textContent = '✅ Self-introduction cleared. Ready to record again.';
+  showToast('Self-introduction cleared');
+});
+
 clearChatButton.addEventListener('click', () => {
   clearConversation().catch((error) => showToast(error.message, 'error'));
 });

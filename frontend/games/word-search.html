@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Search Game | MindGuard</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+body{font-family:Arial;text-align:center;background:#0f172a;color:#eff6ff;padding:20px;}
+h1{color:#eff6ff;margin-bottom:10px;}
+#grid{display:grid;grid-template-columns:repeat(10,45px);gap:4px;width:490px;margin:20px auto;}
+.cell{width:45px;height:45px;border:1px solid #60a5fa;display:flex;justify-content:center;align-items:center;font-size:18px;font-weight:bold;background:#1e293b;cursor:pointer;user-select:none;border-radius:8px;}
+.selected{background:#60a5fa;}
+.found{background:#34d399;color:white;}
+#wordList span{display:inline-block;margin:5px;padding:5px 10px;background:#1e293b;border-radius:6px;border:1px solid #60a5fa;}
+.done{background:#34d399 !important;color:white;text-decoration:line-through;}
+button{margin-top:15px;padding:10px 20px;font-size:16px;border:none;background:#3b82f6;color:white;border-radius:999px;cursor:pointer;}
+button:hover{background:#2563eb;}
+.back-btn{background:#6b7280;margin-right:10px;}
+.back-btn:hover{background:#4b5563;}
+</style>
+</head>
+<body>
+<h1>🔎 Word Search Puzzle</h1>
+<p>⏱ Time: <span id="time">120</span> s | ⭐ Score: <span id="score">0</span></p>
+<div id="grid"></div>
+<h3>Find These Words</h3>
+<div id="wordList"></div>
+<button class="back-btn" onclick="window.location.href='/dashboard.html'">Back to Dashboard</button>
+<button onclick="restartGame()">Restart Game</button>
+<h2 id="result"></h2>
+<script>
+let letters=["C","A","L","M","X","T","H","O","P","E","P","E","A","C","E","Q","R","C","A","R","E","L","O","V","E","F","G","H","I","J","K","I","N","D","M","N","O","P","Q","R","B","R","A","V","E","T","U","V","W","X","S","M","I","L","E","D","E","F","G","H","R","E","S","T","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","H","A","P","P","Y","A","B","C","D","E","F","G","H","I","J","K","L","M"];
+let words=["CALM","HOPE","CARE","REST","SMILE","PEACE","KIND","LOVE","BRAVE","HAPPY"];
+let grid=document.getElementById("grid");
+let wordList=document.getElementById("wordList");
+let selected="";
+let selectedCells=[];
+let score=0;
+let isMouseDown=false;
+let timer;
+let timeLeft=120;
+words.forEach(word=>{let span=document.createElement("span");span.innerText=word;span.id="word-"+word;wordList.appendChild(span);});
+letters.forEach(letter=>{let cell=document.createElement("div");cell.className="cell";cell.innerText=letter;cell.onmousedown=function(){isMouseDown=true;selectCell(cell,letter);};cell.onmouseover=function(){if(isMouseDown){selectCell(cell,letter);}};cell.onmouseup=function(){isMouseDown=false;checkWord();};grid.appendChild(cell);});
+document.body.onmouseup=function(){isMouseDown=false;checkWord();};
+function selectCell(cell,letter){if(!cell.classList.contains("selected")&&!cell.classList.contains("found")){cell.classList.add("selected");selected+=letter;selectedCells.push(cell);}}
+function checkWord(){let found=false;words.forEach(word=>{if(selected===word&&!document.getElementById("word-"+word).classList.contains("done")){found=true;score++;document.getElementById("score").innerText=score;document.getElementById("word-"+word).classList.add("done");selectedCells.forEach(c=>{c.classList.remove("selected");c.classList.add("found");});if(score===words.length){document.getElementById("result").innerText="🎉 You Found All Words!";clearInterval(timer);}}});if(!found){selectedCells.forEach(c=>{c.classList.remove("selected");});}selected="";selectedCells=[];}
+function restartGame(){location.reload();}
+timer=setInterval(()=>{timeLeft--;document.getElementById("time").innerText=timeLeft;if(timeLeft<=0){clearInterval(timer);document.getElementById("result").innerText="⏰ Time's Up!";}},1000);
+</script>
+</body>
+</html>

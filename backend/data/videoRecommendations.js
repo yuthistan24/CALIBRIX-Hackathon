@@ -1,37 +1,44 @@
 module.exports = [
   {
     id: 'vid-1',
-    title: 'Stress Reset for Students',
+    title: 'Emotional Support Videos',
     category: 'Emotional Distress',
-    videoUrl: 'https://www.youtube.com/watch?v=nmFUDkj1Aq0',
+    videoUrl: '/videos/emotional-distress.html',
     tags: ['emotional', 'anxiety', 'burnout']
   },
   {
     id: 'vid-2',
-    title: 'Build Study Momentum in 15 Minutes',
+    title: 'Academic Stress Videos',
     category: 'Academic Helplessness',
-    videoUrl: 'https://www.youtube.com/watch?v=1ex_bNIFR1A',
+    videoUrl: '/videos/academic-stress.html',
     tags: ['academic', 'focus', 'motivation']
   },
   {
     id: 'vid-3',
-    title: 'Feeling Connected Again',
+    title: 'Social & Peer Support Videos',
     category: 'Social Belonging Issues',
-    videoUrl: 'https://www.youtube.com/watch?v=EUWM4CHreGE',
+    videoUrl: '/videos/social-peer.html',
     tags: ['social', 'belonging', 'loneliness']
   },
   {
     id: 'vid-4',
-    title: 'Calm Through Family Pressure',
+    title: 'Family Stress Videos',
     category: 'Family Stress Dominant',
-    videoUrl: 'https://www.youtube.com/watch?v=inpok4MKVLM',
+    videoUrl: '/videos/family-stress.html',
     tags: ['family', 'boundaries', 'stress']
   },
   {
     id: 'vid-5',
-    title: 'Small Habits that Build Resilience',
+    title: 'Coping Skills Videos',
     category: 'Coping Resilience Deficit',
-    videoUrl: 'https://www.youtube.com/watch?v=8ZhoeSaPF-k',
+    videoUrl: '/videos/coping-skills.html',
     tags: ['coping', 'sleep', 'energy']
+  },
+  {
+    id: 'vid-6',
+    title: 'General Wellness Videos',
+    category: 'General Mental Wellness',
+    videoUrl: '/videos/general-wellness.html',
+    tags: ['wellness', 'mindfulness', 'health']
   }
 ];
