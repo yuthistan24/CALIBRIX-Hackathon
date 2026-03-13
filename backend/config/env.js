@@ -2,6 +2,11 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+function toNumber(value, fallback) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
 module.exports = {
   port: Number(process.env.PORT || 3000),
   mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/pfadsplus',
@@ -18,7 +23,11 @@ module.exports = {
     compatibleApiKey: process.env.COMPATIBLE_API_KEY || '',
     compatibleModel: process.env.COMPATIBLE_MODEL || '',
     ollamaBaseUrl: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
-    ollamaModel: process.env.OLLAMA_MODEL || 'qwen2.5:0.5b-instruct'
+    ollamaModel: process.env.OLLAMA_MODEL || 'qwen2.5:0.5b-instruct',
+    chatHistoryTurns: toNumber(process.env.LLM_CHAT_HISTORY_TURNS, 20),
+    chatTimeoutMs: toNumber(process.env.LLM_CHAT_TIMEOUT_MS, 25000),
+    temperature: toNumber(process.env.LLM_TEMPERATURE, 0.75),
+    topP: toNumber(process.env.LLM_TOP_P, 0.9)
   },
   jwt: {
     secret: process.env.JWT_SECRET || 'change-me',

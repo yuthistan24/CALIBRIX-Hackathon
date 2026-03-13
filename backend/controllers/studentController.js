@@ -24,6 +24,7 @@ const TaskCompletion = require('../models/TaskCompletion');
 const AssignedTask = require('../models/AssignedTask');
 const DeviceSync = require('../models/DeviceSync');
 const StudentIntroProfile = require('../models/StudentIntroProfile');
+const env = require('../config/env');
 const { clusterPsychology, predictDropout, analyzeSentiment, generateChatResponse } = require('../services/aiService');
 const { analyzeTranscriptWithLlm, getLlmRuntimeStatus, transcribeSpeech } = require('../services/llmService');
 const { assignCounselor } = require('../services/counselorAssignmentService');
@@ -60,6 +61,98 @@ function buildResilienceBadges(score, streak, badges) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, Number(value || 0)));
+}
+
+function pearsonCorrelation(xs = [], ys = []) {
+  const length = Math.min(xs.length, ys.length);
+  if (length < 3) {
+    return null;
+  }
+
+  const x = xs.slice(0, length);
+  const y = ys.slice(0, length);
+  const meanX = x.reduce((sum, value) => sum + value, 0) / length;
+  const meanY = y.reduce((sum, value) => sum + value, 0) / length;
+
+  let numerator = 0;
+  let denomX = 0;
+  let denomY = 0;
+  for (let index = 0; index < length; index += 1) {
+    const dx = x[index] - meanX;
+    const dy = y[index] - meanY;
+    numerator += dx * dy;
+    denomX += dx * dx;
+    denomY += dy * dy;
+  }
+
+  const denominator = Math.sqrt(denomX * denomY);
+  if (!denominator) {
+    return null;
+  }
+  return Number((numerator / denominator).toFixed(2));
+}
+
+function buildScreenTimeStats(deviceSyncs = [], sentimentLogs = []) {
+  const byDate = new Map();
+  for (const entry of deviceSyncs) {
+    const dateKey = entry?.dateKey;
+    if (!dateKey) {
+      continue;
+    }
+    const minutes = Number(entry.screenTimeMinutes || 0);
+    byDate.set(dateKey, (byDate.get(dateKey) || 0) + minutes);
+  }
+
+  const sentimentByDate = new Map();
+  for (const entry of sentimentLogs) {
+    const dateKey = new Date(entry.createdAt || Date.now()).toISOString().slice(0, 10);
+    const stress = Number(entry.stressIndicator ?? 0);
+    const record = sentimentByDate.get(dateKey) || { total: 0, count: 0 };
+    record.total += stress;
+    record.count += 1;
+    sentimentByDate.set(dateKey, record);
+  }
+
+  const days = Array.from(byDate.entries())
+    .map(([dateKey, minutes]) => ({
+      dateKey,
+      minutes: Number(minutes.toFixed(1)),
+      avgStressIndicator: sentimentByDate.get(dateKey)?.count
+        ? Number((sentimentByDate.get(dateKey).total / sentimentByDate.get(dateKey).count).toFixed(2))
+        : null
+    }))
+    .sort((a, b) => a.dateKey.localeCompare(b.dateKey))
+    .slice(-7);
+
+  const avgMinutes7d = days.length
+    ? Number((days.reduce((sum, day) => sum + day.minutes, 0) / days.length).toFixed(1))
+    : 0;
+
+  const last = days[days.length - 1]?.minutes ?? 0;
+  const first = days[0]?.minutes ?? 0;
+  const trendLabel = last > first * 1.2 ? 'rising' : last < first * 0.8 ? 'falling' : 'stable';
+
+  const correlation = pearsonCorrelation(
+    days.map((day) => day.minutes),
+    days.map((day) => (day.avgStressIndicator == null ? 0 : day.avgStressIndicator))
+  );
+
+  const insight =
+    correlation == null
+      ? 'Keep tracking in-app screen time to unlock trend insights.'
+      : correlation >= 0.35
+        ? 'In-app screen time is trending with higher stress signals. Consider adding short breaks and a shut-down routine.'
+        : correlation <= -0.35
+          ? 'Higher in-app screen time is not matching higher stress signals in your recent data.'
+          : 'No strong relationship between in-app screen time and stress signals in recent data.';
+
+  return {
+    days,
+    avgMinutes7d,
+    trendLabel,
+    correlation,
+    insight
+  };
 }
 
 async function rollback(steps) {
@@ -501,10 +594,9 @@ const syncDeviceMetrics = asyncHandler(async (req, res) => {
           1,
           Number(
             (
-              clamp(payload.focusMinutes / 120, 0, 1) * 0.45 +
-              clamp(payload.studyScreenMinutes / 120, 0, 1) * 0.25 +
-              clamp(payload.steps / 8000, 0, 1) * 0.15 +
-              clamp((8 - Math.max(0, 8 - payload.sleepHours)) / 8, 0, 1) * 0.15
+              clamp(payload.screenTimeMinutes / 240, 0, 1) * 0.4 +
+              clamp(payload.focusMinutes / 120, 0, 1) * 0.4 +
+              clamp(payload.studyScreenMinutes / 120, 0, 1) * 0.2
             ).toFixed(2)
           )
         )
@@ -789,6 +881,7 @@ const getDashboard = asyncHandler(async (req, res) => {
     alerts,
     recentTaskCompletions,
     latestDeviceSync,
+    recentDeviceSyncs,
     latestIntroProfile,
     assignedTasks
   ] = await Promise.all([
@@ -806,6 +899,7 @@ const getDashboard = asyncHandler(async (req, res) => {
     Alert.find({ student: student._id, resolved: false }).sort({ createdAt: -1 }).lean(),
     TaskCompletion.find({ student: student._id }).sort({ createdAt: -1 }).limit(200).lean(),
     DeviceSync.findOne({ student: student._id }).sort({ createdAt: -1 }).lean(),
+    DeviceSync.find({ student: student._id }).sort({ createdAt: -1 }).limit(120).lean(),
     StudentIntroProfile.findOne({ student: student._id }).sort({ createdAt: -1 }).lean(),
     AssignedTask.find({ student: student._id })
       .populate('counselor', 'name email mobileNumber')
@@ -825,6 +919,7 @@ const getDashboard = asyncHandler(async (req, res) => {
     latestIntroProfile,
     assignedTasks
   });
+  const screenTimeStats = buildScreenTimeStats(recentDeviceSyncs || [], sentiments || []);
 
   const mentorAppointment = appointments[0] || null;
   const mentorCounselor = mentorAppointment?.counselor
@@ -857,7 +952,8 @@ const getDashboard = asyncHandler(async (req, res) => {
     miniGames,
     deviceIntegration: {
       latestSync: latestDeviceSync,
-      hooks: getDeviceHooks()
+      hooks: getDeviceHooks(),
+      screenTimeStats
     },
     latestIntroProfile,
     hospitalRecommendations: recommendHospitals(student.district)
@@ -921,17 +1017,31 @@ const getResources = asyncHandler(async (req, res) => {
 
 const postAiChat = asyncHandler(async (req, res) => {
   const student = await Student.findById(req.user.userId);
+  if (!student) {
+    return res.status(404).json({ message: 'Student not found' });
+  }
   const message = String(req.body.message || '').trim();
   if (!message) {
     return res.status(400).json({ message: 'Message is required' });
   }
 
   const roomId = `ai:${student._id.toString()}`;
-  const [sentiment, recentMessages, latestContext] = await Promise.all([
+  const historyLimit = Math.max(6, Math.min(60, Number(env.llm?.chatHistoryTurns || 20) * 2));
+  const [sentimentResult, recentMessagesResult, latestContextResult] = await Promise.allSettled([
     analyzeSentiment(message),
-    ChatMessage.find({ roomId }).sort({ createdAt: -1 }).limit(6).lean(),
+    ChatMessage.find({ roomId }).sort({ createdAt: -1 }).limit(historyLimit).lean(),
     getLatestStudentContext(student._id)
   ]);
+
+  const sentiment =
+    sentimentResult.status === 'fulfilled'
+      ? sentimentResult.value
+      : { score: 0, label: 'Neutral', stressIndicator: 0.2 };
+  const recentMessages = recentMessagesResult.status === 'fulfilled' ? recentMessagesResult.value : [];
+  const latestContext =
+    latestContextResult.status === 'fulfilled'
+      ? latestContextResult.value
+      : { latestCheckin: null, latestPrediction: null, latestAppointment: null };
 
   const chatReply = await generateChatResponse({
     message,
@@ -952,64 +1062,89 @@ const postAiChat = asyncHandler(async (req, res) => {
     }
   });
 
-  await Promise.all([
-    ChatMessage.create({
-      roomId,
-      student: student._id,
-      senderRole: 'student',
-      senderId: student._id.toString(),
-      recipientId: 'ai-assistant',
-      message,
-      sentiment
-    }),
-    ChatMessage.create({
-      roomId,
-      student: student._id,
-      senderRole: 'ai',
-      senderId: 'ai-assistant',
-      recipientId: student._id.toString(),
-      message: chatReply.reply
-    }),
-    SentimentLog.create({
-      student: student._id,
-      sourceType: 'ai_chat',
-      message,
-      sentimentScore: sentiment.score,
-      label: sentiment.label,
-      stressIndicator: sentiment.stressIndicator
-    })
-  ]);
-
-  student.latestSentimentScore = sentiment.score;
-  await student.save();
-
-  const io = req.app.get('io');
-  await evaluateSentimentAlerts({
-    studentId: student._id,
-    counselorId: latestContext.latestAppointment?.counselor,
-    sentiment,
-    sourceType: 'ai_chat',
-    messageText: message,
-    io
-  });
-
-  await evaluateChatEscalationAlert({
-    studentId: student._id,
-    counselorId: latestContext.latestAppointment?.counselor,
-    chatReply,
-    studentMessage: message,
-    io
-  });
-  await evaluateHolisticStudentState({
-    studentId: student._id,
-    counselorId: latestContext.latestAppointment?.counselor,
-    io
-  });
-
   res.json({
     sentiment,
     chat: chatReply
   });
+
+  const studentId = student._id;
+  const counselorId = latestContext.latestAppointment?.counselor;
+  const io = req.app.get('io');
+
+  void (async () => {
+    try {
+      await Promise.all([
+        ChatMessage.create({
+          roomId,
+          student: studentId,
+          senderRole: 'student',
+          senderId: studentId.toString(),
+          recipientId: 'ai-assistant',
+          message,
+          sentiment
+        }),
+        ChatMessage.create({
+          roomId,
+          student: studentId,
+          senderRole: 'ai',
+          senderId: 'ai-assistant',
+          recipientId: studentId.toString(),
+          message: chatReply.reply
+        }),
+        SentimentLog.create({
+          student: studentId,
+          sourceType: 'ai_chat',
+          message,
+          sentimentScore: sentiment.score,
+          label: sentiment.label,
+          stressIndicator: sentiment.stressIndicator
+        })
+      ]);
+    } catch (_error) {
+      // Best-effort persistence; do not fail the chat reply.
+    }
+
+    try {
+      await Student.updateOne({ _id: studentId }, { $set: { latestSentimentScore: sentiment.score } });
+    } catch (_error) {
+      // Best-effort update.
+    }
+
+    try {
+      await evaluateSentimentAlerts({
+        studentId,
+        counselorId,
+        sentiment,
+        sourceType: 'ai_chat',
+        messageText: message,
+        io
+      });
+    } catch (_error) {
+      // Best-effort alerting.
+    }
+
+    try {
+      await evaluateChatEscalationAlert({
+        studentId,
+        counselorId,
+        chatReply,
+        studentMessage: message,
+        io
+      });
+    } catch (_error) {
+      // Best-effort alerting.
+    }
+
+    try {
+      await evaluateHolisticStudentState({
+        studentId,
+        counselorId,
+        io
+      });
+    } catch (_error) {
+      // Best-effort alerting.
+    }
+  })();
 });
 
 const clearAiChatHistory = asyncHandler(async (req, res) => {

@@ -1,3 +1,5 @@
+import random
+
 from sentiment.engine import analyze_sentiment
 
 
@@ -89,12 +91,10 @@ CHAT_TOPICS = {
 }
 
 
-def hash_seed(value=""):
-    return sum(ord(character) for character in value)
-
-
-def pick_variant(options, seed):
-    return options[hash_seed(seed) % len(options)]
+def pick_variant(options):
+    if not options:
+        return ""
+    return random.choice(options)
 
 
 def infer_topic(message, dominant_risk=""):
@@ -102,33 +102,67 @@ def infer_topic(message, dominant_risk=""):
     for topic, config in CHAT_TOPICS.items():
         if any(keyword in lowered for keyword in config["keywords"]):
             return topic
-
-    if "Academic" in dominant_risk:
-        return "academic"
-    if "Family" in dominant_risk:
-        return "family"
-    if "Social" in dominant_risk:
-        return "social"
-    if "Coping" in dominant_risk:
-        return "sleep"
     return "emotional"
 
 
 def generate_support_reply(payload):
     message = payload.get("message", "")
+    normalized = str(message or "").strip().lower()
+    normalized = "".join(character for character in normalized if character.isalnum() or character.isspace()).strip()
+    greetings = {
+        "hi",
+        "hello",
+        "hey",
+        "hii",
+        "hiii",
+        "yo",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "namaste",
+    }
+    if normalized in greetings:
+        steps = [
+            "In one sentence, tell me what you want help with (stress, studies, loneliness, sleep, motivation).",
+            "Pick a starting area: stress / studies / loneliness / sleep / motivation.",
+            "Rate it from 1 to 10 right now.",
+        ]
+        follow_up = "What would you like help with right now?"
+        return {
+            "reply": f"Hi. 1) {steps[0]} 2) {steps[1]} 3) {steps[2]} Question: {follow_up}",
+            "copingStrategies": steps,
+            "escalate": False,
+            "topic": "check-in",
+            "followUpQuestion": follow_up,
+            "alertSeverity": "low",
+            "escalationReason": "",
+        }
+    if normalized in greetings:
+        steps = [
+            "Pick one topic: studies / stress / loneliness / sleep / motivation.",
+            "Tell me what’s happening in 1–2 sentences.",
+            "Tell me what you want by the end of this chat (calm down / plan / talk it out / resources).",
+        ]
+        follow_up = "Which topic should we start with?"
+        return {
+            "reply": f"Hi — quick start: 1) {steps[0]} 2) {steps[1]} 3) {steps[2]} Question: {follow_up}",
+            "copingStrategies": steps,
+            "escalate": False,
+            "topic": "check-in",
+            "followUpQuestion": follow_up,
+            "alertSeverity": "low",
+            "escalationReason": "",
+        }
+
     student_context = payload.get("studentContext", {})
+    student_context = {}
     topic = infer_topic(message, student_context.get("dominantRisk", ""))
     config = CHAT_TOPICS[topic]
     sentiment = analyze_sentiment(message)
     history = payload.get("chatHistory", [])
+    history = []
     assistant_turns = sum(1 for entry in history if entry.get("role") == "assistant")
-
-    if sentiment["label"] == "Negative":
-        reflection = f"You sound pulled down by {config['label']} right now."
-    elif sentiment["label"] == "Positive":
-        reflection = f"There is some stability in what you shared, even with {config['label']} present."
-    else:
-        reflection = f"I can hear that {config['label']} is part of today."
+    assistant_turns = 0
 
     if student_context.get("latestCheckinRisk") == "High concern":
         context_note = "Your latest daily check-in also suggests today has been especially heavy."
@@ -138,17 +172,31 @@ def generate_support_reply(payload):
         context_note = ""
 
     if assistant_turns == 0:
-        follow_up = pick_variant(config["questions"], message)
+        follow_up = pick_variant(config["questions"])
     elif assistant_turns == 1:
         follow_up = f"On a scale from 1 to 10, how intense is this {config['label']} right now?"
     else:
         follow_up = f"What is one realistic action you could take in the next hour to reduce this {config['label']} a little?"
 
-    reply = " ".join(part for part in [reflection, context_note, follow_up] if part)
+    strategies = list(config.get("strategies") or [])[:4]
+    steps_text = " ".join(f"{index + 1}) {step}" for index, step in enumerate(strategies[:3]))
+    reply_parts = [
+        context_note,
+        f"Try: {steps_text}" if steps_text else "",
+        f"Question: {follow_up}",
+    ]
+    reply = " ".join(part for part in reply_parts if part)
 
     return {
         "reply": reply,
-        "copingStrategies": config["strategies"],
+        "copingStrategies": strategies,
         "escalate": sentiment["stressIndicator"] >= 0.7 or student_context.get("latestCheckinRisk") == "High concern",
         "topic": config["label"],
+        "followUpQuestion": follow_up,
+        "alertSeverity": "high" if sentiment["stressIndicator"] >= 0.82 else "moderate" if sentiment["label"] == "Negative" else "low",
+        "escalationReason": (
+            "Strong distress language or stress signals were detected in the latest student message."
+            if sentiment["stressIndicator"] >= 0.7
+            else ""
+        ),
     }

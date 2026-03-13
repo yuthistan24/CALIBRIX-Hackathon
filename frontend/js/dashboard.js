@@ -505,21 +505,22 @@ function renderEvaluationSummary(data) {
 
 function renderDeviceIntegration(data) {
   const latestSync = data.deviceIntegration.latestSync;
+  const stats = data.deviceIntegration.screenTimeStats || null;
   deviceSummary.innerHTML = latestSync
     ? `
       <h3>${latestSync.source}</h3>
-      <p>Steps: ${latestSync.steps}</p>
-      <p>Sleep: ${latestSync.sleepHours} hours</p>
-      <p>Focus time: ${latestSync.focusMinutes} minutes</p>
-      <p>Screen time: ${latestSync.screenTimeMinutes || 0} minutes</p>
+      <p>In-app screen time: ${latestSync.screenTimeMinutes || 0} minutes</p>
       <p>Active minutes: ${latestSync.activeMinutes || 0}</p>
       <p>Idle minutes: ${latestSync.idleMinutes || 0}</p>
-      <p>Study screen time: ${latestSync.studyScreenMinutes || 0} minutes</p>
-      <p>${latestSync.notes || ''}</p>
       <p class="small muted">${formatDate(latestSync.createdAt)}</p>
-      <p class="small muted">${data.deviceIntegration.hooks.map((hook) => `${hook.provider}: ${hook.status}`).join(' | ')}</p>
+      ${
+        stats
+          ? `<p class="small muted">7-day avg in-app screen time: ${stats.avgMinutes7d} min · Trend: ${stats.trendLabel}</p>
+             <p class="small muted">${stats.insight}</p>`
+          : ''
+      }
     `
-    : `<p>No device sync yet. Use the form to connect manual or wearable data hooks.</p>`;
+    : `<p>No in-app screen time has been tracked yet. Open a few screens and check back in a minute.</p>`;
 }
 
 function renderAppointments(data) {

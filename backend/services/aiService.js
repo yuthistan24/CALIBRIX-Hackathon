@@ -158,80 +158,129 @@ const CHAT_TOPICS = {
   }
 };
 
-function hashSeed(value = '') {
-  return Array.from(value).reduce((sum, character) => sum + character.charCodeAt(0), 0);
+function pickVariant(options = []) {
+  if (!Array.isArray(options) || !options.length) {
+    return '';
+  }
+  return options[Math.floor(Math.random() * options.length)];
 }
 
-function pickVariant(options, seed) {
-  return options[hashSeed(seed) % options.length];
-}
-
-function inferChatTopic(message, dominantRisk = '') {
+function inferChatTopic(message) {
   const lowered = String(message || '').toLowerCase();
   for (const [topic, config] of Object.entries(CHAT_TOPICS)) {
     if (config.keywords.some((keyword) => lowered.includes(keyword))) {
       return topic;
     }
   }
-
-  if (dominantRisk.includes('Academic')) {
-    return 'academic';
-  }
-  if (dominantRisk.includes('Family')) {
-    return 'family';
-  }
-  if (dominantRisk.includes('Social')) {
-    return 'social';
-  }
-  if (dominantRisk.includes('Coping')) {
-    return 'sleep';
-  }
   return 'emotional';
 }
 
+function isGreetingMessage(message = '') {
+  const normalized = String(message || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[.!?,]/g, '');
+  if (!normalized) {
+    return false;
+  }
+
+  const greetings = new Set([
+    'hi',
+    'hello',
+    'hey',
+    'yo',
+    'hii',
+    'heyy',
+    'hola',
+    'namaste',
+    'salaam',
+    'assalamualaikum',
+    'good morning',
+    'good afternoon',
+    'good evening'
+  ]);
+
+  if (greetings.has(normalized)) {
+    return true;
+  }
+
+  return normalized.length <= 6 && (normalized === 'hi there' || normalized === 'hello there');
+}
+
+function greetingReply(payload) {
+  const steps = [
+    'Pick one topic: studies / stress / loneliness / sleep / motivation.',
+    'Tell me what’s happening in 1–2 sentences.',
+    'Tell me what you want by the end of this chat (calm down / plan / talk it out / resources).'
+  ];
+  const followUpQuestion = 'Which topic should we start with?';
+
+  return {
+    reply: `Hi — quick start: ${steps.map((step, index) => `${index + 1}) ${step}`).join(' ')} Question: ${followUpQuestion}`,
+    copingStrategies: steps.slice(0, 3),
+    escalate: false,
+    topic: 'check-in',
+    alertSeverity: 'low',
+    escalationReason: '',
+    followUpQuestion,
+    provider: 'heuristic',
+    model: 'mindguard-local',
+    source: 'heuristic'
+  };
+}
+
 function localChat(payload) {
+  const messageText = String(payload.message || '').trim();
+  if (isGreetingMessage(messageText)) {
+    const copingStrategies = [
+      'In one sentence, tell me what you want help with (stress, studies, loneliness, sleep, motivation).',
+      'Pick a starting area: stress / studies / loneliness / sleep / motivation.',
+      'Rate it from 1 to 10 right now.'
+    ];
+    const followUpQuestion = 'What would you like help with right now?';
+    return {
+      reply: `Hi. ${copingStrategies.map((step, index) => `${index + 1}) ${step}`).join(' ')} Question: ${followUpQuestion}`,
+      copingStrategies,
+      escalate: false,
+      topic: 'support',
+      alertSeverity: 'low',
+      escalationReason: '',
+      followUpQuestion,
+      provider: 'heuristic',
+      model: 'mindguard-local'
+    };
+  }
+
   const sentiment = localSentiment(payload.message);
-  const studentContext = payload.studentContext || {};
-  const topic = inferChatTopic(payload.message, studentContext.dominantRisk || '');
+  const topic = inferChatTopic(payload.message);
   const config = CHAT_TOPICS[topic];
   const guidance = retrieveRelevantGuidance({
     message: payload.message,
-    studentContext
+    studentContext: {}
   })[0];
-  const chatHistory = payload.chatHistory || [];
-  const assistantTurns = chatHistory.filter((entry) => entry.role === 'assistant').length;
 
-  const reflection =
-    sentiment.label === 'Negative'
-      ? `You sound pulled down by ${config.label} right now.`
-      : sentiment.label === 'Positive'
-        ? `There is some stability in what you shared, even with ${config.label} present.`
-        : `I can hear that ${config.label} is part of today.`;
-
-  const contextNote =
-    studentContext.latestCheckinRisk === 'High concern'
-      ? 'Your latest daily check-in also suggests today has been especially heavy.'
-      : studentContext.dropoutRisk === 'High risk'
-        ? 'Given your recent risk pattern, it is worth keeping the next step very small and specific.'
-        : '';
-
-  const followUp =
-    assistantTurns === 0
-      ? pickVariant(config.questions, payload.message)
-      : assistantTurns === 1
-        ? `On a scale from 1 to 10, how intense is this ${config.label} right now?`
-        : `What is one realistic action you could take in the next hour to reduce this ${config.label} a little?`;
+  const followUp = pickVariant(config.questions) || 'What would feel like a small win in the next hour?';
 
   const guidanceLine = guidance?.guidance ? guidance.guidance : '';
   const copingStrategies = guidance?.supportSteps?.length ? guidance.supportSteps.slice(0, 3) : config.strategies;
 
   return {
-    reply: [reflection, contextNote, guidanceLine, followUp].filter(Boolean).join(' '),
-    copingStrategies,
-    escalate: sentiment.stressIndicator >= 0.7 || studentContext.latestCheckinRisk === 'High concern',
+    reply: [
+      guidanceLine,
+      `Try: ${copingStrategies
+        .slice(0, 3)
+        .map((step, index) => `${index + 1}) ${step}`)
+        .join(' ')}`,
+      `Question: ${followUp}`
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .trim(),
+    copingStrategies: copingStrategies.slice(0, 4),
+    escalate: sentiment.stressIndicator >= 0.7,
     topic: config.label,
     alertSeverity:
-      sentiment.stressIndicator >= 0.82 || studentContext.latestCheckinRisk === 'High concern'
+      sentiment.stressIndicator >= 0.82
         ? 'high'
         : sentiment.label === 'Negative'
           ? 'moderate'
@@ -239,9 +288,7 @@ function localChat(payload) {
     escalationReason:
       sentiment.stressIndicator >= 0.7
         ? 'Strong distress language or stress signals were detected in the latest student message.'
-        : studentContext.latestCheckinRisk === 'High concern'
-          ? 'The latest daily check-in is already in a high concern band.'
-          : '',
+        : '',
     followUpQuestion: followUp,
     provider: 'heuristic',
     model: 'mindguard-local'
@@ -281,9 +328,31 @@ async function predictDropout(payload) {
   }
 }
 
+function withTimeout(promise, timeoutMs = 0) {
+  const limit = Number(timeoutMs);
+  if (!limit || limit <= 0) {
+    return promise;
+  }
+
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('LLM request timed out')), limit);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  });
+}
+
 async function generateChatResponse(payload) {
+  if (isGreetingMessage(payload?.message)) {
+    return greetingReply(payload);
+  }
+
   try {
-    const llmReply = await generateMentorReply(payload);
+    const llmReply = await withTimeout(generateMentorReply(payload), env.llm?.chatTimeoutMs || 25000);
     if (llmReply) {
       return {
         ...llmReply

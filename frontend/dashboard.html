@@ -93,12 +93,18 @@
           <div class="section-header">
             <div>
               <h2 class="section-title" id="device-title">Evaluation and Device Integration</h2>
-              <p class="section-copy">Track screen time, activity, sleep, focus, and the current end-to-end student evaluation.</p>
+              <p class="section-copy">MindGuard tracks in-app screen time automatically and summarizes your patterns.</p>
             </div>
           </div>
           <div id="evaluation-summary" class="list-item"></div>
           <div id="device-summary" class="list-item"></div>
-          <form id="device-sync-form" class="stack">
+          <div class="list-item">
+            <p class="small muted">
+              Automatic tracking is enabled via MindGuard Web App sessions. Browsers cannot read your phone's system-level
+              screen time directly, so this is an in-app proxy.
+            </p>
+          </div>
+          <form id="device-sync-form" class="stack" hidden>
             <div class="field">
               <label for="device-source">Source</label>
               <input id="device-source" type="text" name="source" placeholder="Google Fit, Apple Health, Fitbit, Manual" required>

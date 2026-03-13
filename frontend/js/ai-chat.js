@@ -52,8 +52,11 @@ const sentimentState = document.getElementById('sentiment-state');
 const voiceInputButton = document.getElementById('voice-input-button');
 const voiceStopButton = document.getElementById('voice-stop-button');
 const voiceOutputButton = document.getElementById('voice-output-button');
+const micTestButton = document.getElementById('mic-test-button');
 const voiceStatus = document.getElementById('voice-status');
 const voicePreview = document.getElementById('voice-preview');
+const micMeter = document.getElementById('mic-meter');
+const micMeterFill = document.getElementById('mic-meter-fill');
 const chatDraftPreview = document.getElementById('chat-draft-preview');
 const autoReadToggle = document.getElementById('auto-read-toggle');
 const languageSelector = document.getElementById('language-selector');
@@ -86,6 +89,13 @@ let chatVoiceStream = null;
 let chatVoiceChunks = [];
 let chatVoiceFinalTranscript = '';
 let chatVoiceInterimTranscript = '';
+
+let micTestRunning = false;
+let micTestStream = null;
+let micTestAudioContext = null;
+let micTestAnalyser = null;
+let micTestData = null;
+let micTestRafId = 0;
 
 let introRecognition = null;
 let introRecording = false;
@@ -200,7 +210,7 @@ function renderWelcomeState() {
   renderBubble(
     {
       message:
-        'Tell me what feels hardest right now. I can help with stress, deadlines, motivation, isolation, sleep, and the next concrete action to take.',
+        'Tell me what feels hardest right now. You can get support for stress, deadlines, motivation, isolation, sleep, and the next concrete action to take.',
       senderLabel: 'MindGuard'
     },
     false
@@ -443,6 +453,15 @@ function speakText(text) {
   window.speechSynthesis.speak(utterance);
 }
 
+function pickChatFailureReply() {
+  const variants = [
+    "You're not alone — the support service didn't respond just now. Please try sending that again.",
+    "Sorry — the AI service didn't respond this time. Please retry in a moment.",
+    "Connection issue for a moment. Please try again, and if it keeps happening, refresh the page."
+  ];
+  return variants[Math.floor(Math.random() * variants.length)];
+}
+
 async function sendMessage({ messageOverride = null, origin = 'text' } = {}) {
   const message = String(messageOverride ?? input.value).trim();
   if (!message || sendingMessage) {
@@ -463,6 +482,7 @@ async function sendMessage({ messageOverride = null, origin = 'text' } = {}) {
   try {
     const result = await apiFetch('/api/students/ai-chat', {
       method: 'POST',
+      timeoutMs: 30000,
       body: {
         message,
         language: getLanguageConfig().replyLanguage
@@ -504,6 +524,15 @@ async function sendMessage({ messageOverride = null, origin = 'text' } = {}) {
     }
   } catch (error) {
     showToast(error.message, 'error');
+    renderBubble(
+      {
+        message: pickChatFailureReply(),
+        createdAt: new Date(),
+        senderLabel: 'MindGuard'
+      },
+      false
+    );
+    renderStrategies();
   } finally {
     sendingMessage = false;
     sendButton.disabled = false;
@@ -517,6 +546,9 @@ function updateChatVoiceButtons() {
   const voiceInputSupported = recognitionSupported || (canUseMediaRecorder() && voiceTranscriptionAvailable);
   voiceInputButton.disabled = chatVoiceRecording || !voiceInputSupported;
   voiceStopButton.disabled = !chatVoiceRecording;
+  if (micTestButton) {
+    micTestButton.disabled = chatVoiceRecording || introRecording;
+  }
 }
 
 function canUseMediaRecorder() {
@@ -550,6 +582,7 @@ async function transcribeRecordedVoice(blob) {
     const audioBase64 = await blobToBase64(blob);
     const result = await apiFetch('/api/students/voice/transcribe', {
       method: 'POST',
+      timeoutMs: 45000,
       body: {
         audioBase64,
         mimeType: blob.type || 'audio/webm',
@@ -597,6 +630,20 @@ function createChatVoiceRecognition() {
 
   recognition.onerror = (event) => {
     console.error('Speech recognition error:', event.error);
+    if (event.error === 'network') {
+      const canTranscribe = Boolean(aiRuntime?.transcriptionAvailable && canUseMediaRecorder());
+      voiceStatus.textContent = canTranscribe
+        ? 'Speech recognition needs internet. Keep recording; the app will transcribe the audio when you stop.'
+        : 'Speech recognition needs internet and server transcription is not configured. Please use typing or configure OPENAI_API_KEY.';
+      showToast('Speech recognition network error.', 'error');
+      try {
+        recognition.stop();
+      } catch (_error) {
+        // Ignore browser-specific stop errors.
+      }
+      return;
+    }
+
     voiceStatus.textContent = `Speech recognition error: ${event.error}. Audio will still be used for transcription if supported.`;
   };
 
@@ -627,6 +674,10 @@ async function startMessageVoiceRecording() {
     return;
   }
 
+  if (micTestRunning) {
+    stopMicTest();
+  }
+
   const recognitionSupported = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
   const voiceTranscriptionAvailable = Boolean(aiRuntime?.transcriptionAvailable);
   if (!recognitionSupported && !(canUseMediaRecorder() && voiceTranscriptionAvailable)) {
@@ -650,6 +701,7 @@ async function startMessageVoiceRecording() {
   updateVoiceDraft('');
 
   try {
+    const preferServerTranscription = Boolean(voiceTranscriptionAvailable && canUseMediaRecorder());
     if (canUseMediaRecorder()) {
       chatVoiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       chatVoiceRecorder = new MediaRecorder(chatVoiceStream);
@@ -661,15 +713,21 @@ async function startMessageVoiceRecording() {
       chatVoiceRecorder.start();
     }
 
-    chatVoiceRecognition = createChatVoiceRecognition();
-    if (chatVoiceRecognition) {
-      chatVoiceRecognition.start();
+    if (!preferServerTranscription) {
+      chatVoiceRecognition = createChatVoiceRecognition();
+      if (chatVoiceRecognition) {
+        chatVoiceRecognition.start();
+      }
+    } else {
+      chatVoiceRecognition = null;
     }
 
     chatVoiceRecording = true;
     updateChatVoiceButtons();
-    voiceStatus.textContent = 'Recording voice message. Press Stop Recording when you are ready to send.';
-    updateVoiceDraft('Listening...');
+    voiceStatus.textContent = preferServerTranscription
+      ? 'Recording voice message. Press Stop Recording to transcribe and send.'
+      : 'Recording voice message. Press Stop Recording when you are ready to send.';
+    updateVoiceDraft(preferServerTranscription ? 'Recording... (transcribing on stop)' : 'Listening...');
     emitAnalyticsEvent('student_voice_chat_started', {
       language: getLanguageConfig().code
     });
@@ -681,6 +739,114 @@ async function startMessageVoiceRecording() {
     chatVoiceRecorder = null;
     showToast(error.message || 'Unable to access the microphone.', 'error');
   }
+}
+
+function updateMicMeter(level) {
+  if (!micMeter || !micMeterFill) {
+    return;
+  }
+  const clamped = Math.max(0, Math.min(1, level));
+  micMeterFill.style.width = `${Math.round(clamped * 100)}%`;
+}
+
+function stopMicTest() {
+  micTestRunning = false;
+
+  if (micTestRafId) {
+    cancelAnimationFrame(micTestRafId);
+    micTestRafId = 0;
+  }
+
+  if (micTestStream) {
+    micTestStream.getTracks().forEach((track) => track.stop());
+    micTestStream = null;
+  }
+
+  if (micTestAudioContext) {
+    micTestAudioContext.close().catch(() => {});
+    micTestAudioContext = null;
+  }
+
+  micTestAnalyser = null;
+  micTestData = null;
+
+  if (micMeter) {
+    micMeter.hidden = true;
+  }
+  updateMicMeter(0);
+
+  if (micTestButton) {
+    micTestButton.textContent = 'Test Mic';
+  }
+  if (!chatVoiceRecording) {
+    voiceStatus.textContent = 'Mic test stopped.';
+  }
+}
+
+async function startMicTest() {
+  if (micTestRunning) {
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    showToast('Microphone access is not supported in this browser.', 'error');
+    return;
+  }
+  if (chatVoiceRecording || introRecording) {
+    showToast('Stop recording before testing the microphone.', 'error');
+    return;
+  }
+
+  try {
+    micTestStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (error) {
+    showToast(error.message || 'Unable to access the microphone.', 'error');
+    voiceStatus.textContent = 'Mic permission denied or unavailable.';
+    return;
+  }
+
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    showToast('Web Audio is not available in this browser.', 'error');
+    micTestStream.getTracks().forEach((track) => track.stop());
+    micTestStream = null;
+    return;
+  }
+
+  micTestAudioContext = new AudioContextClass();
+  const source = micTestAudioContext.createMediaStreamSource(micTestStream);
+  micTestAnalyser = micTestAudioContext.createAnalyser();
+  micTestAnalyser.fftSize = 2048;
+  micTestData = new Uint8Array(micTestAnalyser.fftSize);
+  source.connect(micTestAnalyser);
+
+  micTestRunning = true;
+  if (micMeter) {
+    micMeter.hidden = false;
+  }
+  if (micTestButton) {
+    micTestButton.textContent = 'Stop Test';
+  }
+  voiceStatus.textContent = 'Mic test running. Speak to see input level.';
+
+  const tick = () => {
+    if (!micTestRunning || !micTestAnalyser || !micTestData) {
+      return;
+    }
+
+    micTestAnalyser.getByteTimeDomainData(micTestData);
+    let sumSquares = 0;
+    for (let i = 0; i < micTestData.length; i += 1) {
+      const normalized = (micTestData[i] - 128) / 128;
+      sumSquares += normalized * normalized;
+    }
+    const rms = Math.sqrt(sumSquares / micTestData.length);
+    // Convert small RMS values into a visible meter.
+    const level = Math.min(1, rms * 3.2);
+    updateMicMeter(level);
+    micTestRafId = requestAnimationFrame(tick);
+  };
+
+  tick();
 }
 
 async function stopMessageVoiceRecording() {
@@ -772,6 +938,16 @@ function setupMessageVoice() {
       model: lastAiModel || 'unknown'
     });
   });
+
+  if (micTestButton) {
+    micTestButton.addEventListener('click', () => {
+      if (micTestRunning) {
+        stopMicTest();
+        return;
+      }
+      startMicTest().catch((error) => showToast(error.message, 'error'));
+    });
+  }
 
   updateChatVoiceButtons();
 }
@@ -937,6 +1113,10 @@ async function startSelfIntroduction() {
   if (chatVoiceRecording) {
     showToast('Stop voice chat before starting self-introduction.');
     return;
+  }
+
+  if (micTestRunning) {
+    stopMicTest();
   }
 
   resetIntroMediaPreview();

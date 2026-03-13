@@ -91,7 +91,7 @@ export function requireAuth(allowedRoles) {
 }
 
 export async function apiFetch(path, options = {}) {
-  const { method = 'GET', body, auth = true } = options;
+  const { method = 'GET', body, auth = true, timeoutMs = 20000, signal } = options;
   const headers = {
     'Content-Type': 'application/json'
   };
@@ -100,15 +100,57 @@ export async function apiFetch(path, options = {}) {
     headers.Authorization = `Bearer ${getToken()}`;
   }
 
-  const response = await fetch(resolveApiUrl(path), {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined
-  });
+  const controller = new AbortController();
+  let timeoutId = 0;
+  if (Number(timeoutMs) > 0) {
+    timeoutId = window.setTimeout(() => controller.abort(), Number(timeoutMs));
+  }
 
-  const payload = await response.json().catch(() => ({}));
+  let requestSignal = controller.signal;
+  if (signal) {
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') {
+      requestSignal = AbortSignal.any([signal, controller.signal]);
+    } else {
+      signal.addEventListener(
+        'abort',
+        () => {
+          controller.abort();
+        },
+        { once: true }
+      );
+      requestSignal = controller.signal;
+    }
+  }
+
+  let response;
+  try {
+    response = await fetch(resolveApiUrl(path), {
+      method,
+      headers,
+      signal: requestSignal,
+      body: body ? JSON.stringify(body) : undefined
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Request timed out. Please try again.');
+    }
+    throw error;
+  } finally {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  let payload = {};
+  let textBody = '';
+  if (contentType.includes('application/json')) {
+    payload = await response.json().catch(() => ({}));
+  } else {
+    textBody = await response.text().catch(() => '');
+  }
   if (!response.ok) {
-    const error = new Error(payload.message || 'Request failed');
+    const error = new Error(payload.message || textBody || 'Request failed');
     error.status = response.status;
     throw error;
   }

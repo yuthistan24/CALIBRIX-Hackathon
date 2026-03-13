@@ -50,13 +50,40 @@ function buildSystemPrompt(language = 'English') {
     'You are MindGuard, a supportive educational and mental-health mentor for students.',
     'Respond with warmth, clarity, and practical next steps.',
     'Do not sound robotic or repetitive.',
+    'If asked the same thing again, vary your wording and examples while staying consistent.',
+    'Do not reply with only empathy or only a question. Always include actionable steps.',
+    "Address the user as 'you'. Do not refer to 'the student'.",
+    "Avoid first-person filler (like \"I'm here\"). Speak directly to the user.",
+    "Do not repeat the user's message verbatim; respond with new information and steps.",
+    'Do not invent personal details or backstory; base your response only on what the user wrote.',
+    'Only suggest breathing/grounding if the user expresses stress, panic, or strong emotion.',
     'Keep the reply concise but not generic.',
     'If the student sounds unsafe, overwhelmed, or close to giving up, set escalate to true.',
     'Use the supplied psychological guidance notes when they are relevant.',
     'Do not diagnose. Prioritize safety and counselor escalation when risk is high.',
     `Write the reply in ${language}.`,
+    'In reply, include 2-4 short actionable steps and 1 clarifying question.',
     'Return structured JSON only.'
   ].join(' ');
+}
+
+function clampNumber(value, min, max, fallback) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, numeric));
+}
+
+function getSamplingConfig() {
+  return {
+    temperature: clampNumber(env.llm?.temperature, 0, 2, 0.75),
+    topP: clampNumber(env.llm?.topP, 0, 1, 0.9)
+  };
+}
+
+function getChatTimeoutMs() {
+  return clampNumber(env.llm?.chatTimeoutMs, 5000, 120000, 25000);
 }
 
 function buildConversationInput({ message, chatHistory = [], studentContext = {} }) {
@@ -66,13 +93,14 @@ function buildConversationInput({ message, chatHistory = [], studentContext = {}
       studentContext
     })
   );
+  const maxTurns = Math.max(0, Math.min(40, Number(env.llm?.chatHistoryTurns || 8)));
   const historyBlock = chatHistory
-    .slice(-8)
-    .map((entry) => `${entry.role === 'assistant' ? 'Assistant' : 'Student'}: ${entry.message}`)
+    .slice(-maxTurns)
+    .map((entry) => `${entry.role === 'assistant' ? 'Assistant' : 'You'}: ${entry.message}`)
     .join('\n');
 
   return [
-    'Student profile and recent context:',
+    'User profile and recent context:',
     JSON.stringify(studentContext),
     '',
     'Relevant psychological guidance:',
@@ -81,7 +109,7 @@ function buildConversationInput({ message, chatHistory = [], studentContext = {}
     'Recent conversation:',
     historyBlock || 'No recent conversation.',
     '',
-    `Latest student message: ${message}`,
+    `Latest message from you: ${message}`,
     '',
     'Return JSON with:',
     '- reply: the assistant response',
@@ -146,7 +174,40 @@ function safeJsonParse(text = '') {
   }
 }
 
-function normalizeReply(payload = {}, defaults = {}) {
+function isGreetingMessage(message = '') {
+  const normalized = String(message || '').trim().toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+
+  const shortGreetings = new Set(['hi', 'hello', 'hey', 'hii', 'hiii', 'yo', 'sup']);
+  if (shortGreetings.has(normalized)) {
+    return true;
+  }
+
+  if (normalized.length <= 18 && /(good\s+morning|good\s+evening|good\s+afternoon|howdy)\b/.test(normalized)) {
+    return true;
+  }
+
+  return normalized.length <= 6 && /^[a-z]+$/.test(normalized);
+}
+
+function looksOffTopicFollowUp(question = '') {
+  const lowered = String(question || '').toLowerCase();
+  if (!lowered) {
+    return true;
+  }
+  return (
+    lowered.includes('the student') ||
+    lowered.includes('their journey') ||
+    lowered.includes('community') ||
+    lowered.includes('we support') ||
+    lowered.includes('towards finding')
+  );
+}
+
+function normalizeReply(payload = {}, defaults = {}, context = {}) {
+  const userMessage = String(context.message || '').trim();
   const normalized = {
     reply: String(payload.reply || defaults.reply || '').trim(),
     copingStrategies: Array.isArray(payload.copingStrategies)
@@ -164,11 +225,80 @@ function normalizeReply(payload = {}, defaults = {}) {
     model: defaults.model || 'unknown'
   };
 
+  const greetingMode = isGreetingMessage(userMessage);
+
+  if (
+    /\bthe student\b/i.test(normalized.followUpQuestion) ||
+    /\bstudent\b/i.test(normalized.followUpQuestion) ||
+    (greetingMode && looksOffTopicFollowUp(normalized.followUpQuestion))
+  ) {
+    normalized.followUpQuestion = greetingMode
+      ? 'What would you like help with right now?'
+      : 'Which part feels hardest right now (thoughts, body stress, or the situation)?';
+  }
+
+  if (normalized.copingStrategies.length < 2) {
+    const fallbackStrategies = greetingMode
+      ? [
+          'In one sentence, tell me what you want help with (stress, studies, loneliness, sleep, motivation).',
+          "If it’s easier, pick one word: overwhelmed / lonely / anxious / unfocused / tired.",
+          'If you want a tiny start: take 3 slow breaths and relax your shoulders.'
+        ]
+      : [
+          'Take 3 slow breaths and unclench your shoulders.',
+          'Write down the next smallest step you can do in 10 minutes.',
+          'Message one trusted person with a simple check-in.'
+        ];
+    for (const entry of fallbackStrategies) {
+      if (normalized.copingStrategies.length >= 2) {
+        break;
+      }
+      if (!normalized.copingStrategies.includes(entry)) {
+        normalized.copingStrategies.push(entry);
+      }
+    }
+    normalized.copingStrategies = normalized.copingStrategies.slice(0, 4);
+  }
+
+  if (greetingMode) {
+    normalized.copingStrategies = [
+      'In one sentence, tell me what you want help with (stress, studies, loneliness, sleep, motivation).',
+      'Pick a starting area: stress / studies / loneliness / sleep / motivation.',
+      'Rate it from 1 to 10 right now.'
+    ];
+  }
+
+  if (!normalized.followUpQuestion) {
+    normalized.followUpQuestion = greetingMode
+      ? 'What would you like help with right now?'
+      : 'Which part feels hardest right now (thoughts, body stress, or the situation)?';
+  }
+
+  if (greetingMode) {
+    const steps = normalized.copingStrategies
+      .slice(0, 3)
+      .map((step, index) => `${index + 1}) ${step}`)
+      .join(' ');
+    normalized.reply = `Hi. ${steps} Question: ${normalized.followUpQuestion}`.trim();
+    return normalized;
+  }
+
   if (!normalized.reply) {
     normalized.reply = [normalized.copingStrategies.slice(0, 2).join(' '), normalized.followUpQuestion]
       .filter(Boolean)
       .join(' ')
       .trim();
+  } else {
+    const hasActionList = /\b1\)\s|\bTry:\s/i.test(normalized.reply);
+    if (!hasActionList && normalized.copingStrategies.length) {
+      const steps = normalized.copingStrategies
+        .slice(0, 3)
+        .map((step, index) => `${index + 1}) ${step}`)
+        .join(' ');
+      normalized.reply = `${normalized.reply} Try: ${steps} Question: ${normalized.followUpQuestion}`.trim();
+    } else if (!/Question:\s/i.test(normalized.reply) && normalized.followUpQuestion) {
+      normalized.reply = `${normalized.reply} Question: ${normalized.followUpQuestion}`.trim();
+    }
   }
 
   return normalized;
@@ -242,12 +372,15 @@ async function generateOpenAiReply(payload) {
     return null;
   }
 
+  const sampling = getSamplingConfig();
   const response = await axios.post(
     `${env.llm.openaiBaseUrl}/responses`,
     {
       model: env.llm.openaiModel,
       instructions: buildSystemPrompt(payload.language),
       input: buildConversationInput(payload),
+      temperature: sampling.temperature,
+      top_p: sampling.topP,
       max_output_tokens: 500,
       text: {
         format: {
@@ -259,7 +392,7 @@ async function generateOpenAiReply(payload) {
       }
     },
     {
-      timeout: 18000,
+      timeout: getChatTimeoutMs(),
       headers: {
         Authorization: `Bearer ${env.llm.openaiApiKey}`,
         'Content-Type': 'application/json'
@@ -272,11 +405,15 @@ async function generateOpenAiReply(payload) {
     return null;
   }
 
-  return normalizeReply(parsed, {
-    source: 'llm',
-    provider: 'openai',
-    model: env.llm.openaiModel
-  });
+  return normalizeReply(
+    parsed,
+    {
+      source: 'llm',
+      provider: 'openai',
+      model: env.llm.openaiModel
+    },
+    { message: payload.message }
+  );
 }
 
 async function analyzeOpenAiTranscript(payload) {
@@ -327,11 +464,14 @@ async function generateCompatibleReply(payload) {
     return null;
   }
 
+  const sampling = getSamplingConfig();
   const response = await axios.post(
     `${env.llm.compatibleBaseUrl.replace(/\/$/, '')}/chat/completions`,
     {
       model: env.llm.compatibleModel,
       response_format: { type: 'json_object' },
+      temperature: sampling.temperature,
+      top_p: sampling.topP,
       messages: [
         {
           role: 'system',
@@ -344,7 +484,7 @@ async function generateCompatibleReply(payload) {
       ]
     },
     {
-      timeout: 18000,
+      timeout: getChatTimeoutMs(),
       headers: {
         Authorization: `Bearer ${env.llm.compatibleApiKey}`,
         'Content-Type': 'application/json'
@@ -357,11 +497,15 @@ async function generateCompatibleReply(payload) {
     return null;
   }
 
-  return normalizeReply(parsed, {
-    source: 'llm',
-    provider: 'compatible',
-    model: env.llm.compatibleModel
-  });
+  return normalizeReply(
+    parsed,
+    {
+      source: 'llm',
+      provider: 'compatible',
+      model: env.llm.compatibleModel
+    },
+    { message: payload.message }
+  );
 }
 
 async function analyzeCompatibleTranscript(payload) {
@@ -413,6 +557,7 @@ async function generateOllamaReply(payload) {
     return null;
   }
 
+  const sampling = getSamplingConfig();
   const messages = [
     {
       role: 'system',
@@ -431,10 +576,14 @@ async function generateOllamaReply(payload) {
       format: 'json',
       keep_alive: '30m',
       stream: false,
+      options: {
+        temperature: sampling.temperature,
+        top_p: sampling.topP
+      },
       messages
     },
     {
-      timeout: 120000
+      timeout: getChatTimeoutMs()
     }
   );
 
@@ -455,15 +604,20 @@ async function generateOllamaReply(payload) {
         source: 'llm',
         provider: 'ollama',
         model: resolved.modelName
-      }
+      },
+      { message: payload.message }
     );
   }
 
-  return normalizeReply(parsed, {
-    source: 'llm',
-    provider: 'ollama',
-    model: resolved.modelName
-  });
+  return normalizeReply(
+    parsed,
+    {
+      source: 'llm',
+      provider: 'ollama',
+      model: resolved.modelName
+    },
+    { message: payload.message }
+  );
 }
 
 async function analyzeOllamaTranscript(payload) {
