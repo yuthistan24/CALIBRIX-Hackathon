@@ -3,6 +3,7 @@ const axios = require('axios');
 const env = require('../config/env');
 const { rankedFactorsFromSections } = require('../utils/pfads');
 const { generateMentorReply } = require('./llmService');
+const { recommendMedia } = require('./mediaRecommendationService');
 const { retrieveRelevantGuidance } = require('./psychologyKnowledgeService');
 
 function sigmoid(value) {
@@ -347,15 +348,28 @@ function withTimeout(promise, timeoutMs = 0) {
 }
 
 async function generateChatResponse(payload) {
+  const topicKey = inferChatTopic(payload?.message);
   if (isGreetingMessage(payload?.message)) {
-    return greetingReply(payload);
+    return {
+      ...greetingReply(payload),
+      recommendedActivities: recommendMedia({
+        topicKey,
+        sentimentLabel: payload?.sentiment?.label,
+        language: payload?.language
+      })
+    };
   }
 
   try {
     const llmReply = await withTimeout(generateMentorReply(payload), env.llm?.chatTimeoutMs || 25000);
     if (llmReply) {
       return {
-        ...llmReply
+        ...llmReply,
+        recommendedActivities: recommendMedia({
+          topicKey,
+          sentimentLabel: payload?.sentiment?.label,
+          language: payload?.language
+        })
       };
     }
   } catch (_error) {
@@ -371,14 +385,24 @@ async function generateChatResponse(payload) {
       followUpQuestion: response.followUpQuestion || '',
       provider: response.provider || 'python_service',
       model: response.model || 'mindguard-ai-service',
-      source: response.source || 'ai_service'
+      source: response.source || 'ai_service',
+      recommendedActivities: recommendMedia({
+        topicKey,
+        sentimentLabel: payload?.sentiment?.label,
+        language: payload?.language
+      })
     };
   } catch (_error) {
     return {
       ...localChat(payload),
       provider: 'heuristic',
       model: 'mindguard-local',
-      source: 'heuristic'
+      source: 'heuristic',
+      recommendedActivities: recommendMedia({
+        topicKey,
+        sentimentLabel: payload?.sentiment?.label,
+        language: payload?.language
+      })
     };
   }
 }

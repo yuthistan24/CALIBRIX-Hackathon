@@ -217,7 +217,7 @@ function renderWelcomeState() {
   );
 }
 
-function renderStrategies(strategies = [], followUpQuestion = '') {
+function renderStrategies(strategies = [], followUpQuestion = '', recommendedActivities = null) {
   copingList.innerHTML = '';
   const entries = [...strategies];
   if (followUpQuestion) {
@@ -225,8 +225,10 @@ function renderStrategies(strategies = [], followUpQuestion = '') {
   }
 
   if (!entries.length) {
-    copingList.innerHTML = '<div class="list-item"><p>No coping steps yet. Send a message to get recommendations.</p></div>';
-    return;
+    if (!recommendedActivities) {
+      copingList.innerHTML = '<div class="list-item"><p>No coping steps yet. Send a message to get recommendations.</p></div>';
+      return;
+    }
   }
 
   entries.forEach((strategy) => {
@@ -235,6 +237,45 @@ function renderStrategies(strategies = [], followUpQuestion = '') {
     const text = document.createElement('p');
     text.textContent = strategy;
     item.appendChild(text);
+    copingList.appendChild(item);
+  });
+
+  if (recommendedActivities?.game) {
+    const item = document.createElement('div');
+    item.className = 'list-item';
+    const title = document.createElement('h4');
+    title.textContent = 'Suggested game';
+    const text = document.createElement('p');
+    text.textContent = `${recommendedActivities.game.title} (${recommendedActivities.game.durationMinutes} min) — ${recommendedActivities.game.description}`;
+    const link = document.createElement('a');
+    link.className = 'btn-soft';
+    link.href = recommendedActivities.game.url;
+    link.target = '_blank';
+    link.rel = 'noreferrer';
+    link.textContent = 'Play Game';
+    item.append(title, text, link);
+    copingList.appendChild(item);
+  }
+
+  const mediaEntries = [
+    ...(recommendedActivities?.ambient || []),
+    ...(recommendedActivities?.music || []),
+    ...(recommendedActivities?.comedy || [])
+  ];
+  mediaEntries.forEach((entry) => {
+    const item = document.createElement('div');
+    item.className = 'list-item';
+    const title = document.createElement('h4');
+    title.textContent = entry.kind === 'ambient' ? 'Ambient noise' : entry.kind === 'music' ? 'Music' : 'Comedy';
+    const text = document.createElement('p');
+    text.textContent = entry.title;
+    const link = document.createElement('a');
+    link.className = 'btn-soft';
+    link.href = entry.url;
+    link.target = '_blank';
+    link.rel = 'noreferrer';
+    link.textContent = 'Open';
+    item.append(title, text, link);
     copingList.appendChild(item);
   });
 }
@@ -498,7 +539,7 @@ async function sendMessage({ messageOverride = null, origin = 'text' } = {}) {
       false
     );
 
-    renderStrategies(result.chat.copingStrategies, result.chat.followUpQuestion);
+    renderStrategies(result.chat.copingStrategies, result.chat.followUpQuestion, result.chat.recommendedActivities);
     lastAiReply = result.chat.reply;
     lastAiModel = result.chat.model || '';
     topicPill.textContent = `Topic: ${result.chat.topic || 'support'}`;

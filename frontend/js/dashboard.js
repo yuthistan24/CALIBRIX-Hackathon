@@ -50,6 +50,7 @@ const deviceSummary = document.getElementById('device-summary');
 const evaluationSummary = document.getElementById('evaluation-summary');
 const deviceSyncForm = document.getElementById('device-sync-form');
 const miniGamesList = document.getElementById('mini-games-list');
+const mediaHub = document.getElementById('media-hub');
 const videosList = document.getElementById('videos-list');
 const languageSelector = document.getElementById('language-selector');
 
@@ -79,6 +80,7 @@ function normalizeDashboardData(data = {}) {
     sentiments: Array.isArray(data.sentiments) ? data.sentiments : [],
     alerts: Array.isArray(data.alerts) ? data.alerts : [],
     resilienceResources: Array.isArray(data.resilienceResources) ? data.resilienceResources : [],
+    mediaCatalog: Array.isArray(data.mediaCatalog) ? data.mediaCatalog : [],
     dailyCheckinQuestions: Array.isArray(data.dailyCheckinQuestions) ? data.dailyCheckinQuestions : [],
     psychologists: Array.isArray(data.psychologists) ? data.psychologists : [],
     scholarships: Array.isArray(data.scholarships) ? data.scholarships : [],
@@ -664,6 +666,31 @@ function renderEngagement(data) {
       `
     )
     .join('');
+
+  if (mediaHub) {
+    const preferredLanguage = getPreferredLanguage() === 'ta' ? 'ta' : 'en';
+    const pick = (kind) =>
+      data.mediaCatalog.find((item) => item.kind === kind && item.language === preferredLanguage) ||
+      data.mediaCatalog.find((item) => item.kind === kind && item.language === 'en') ||
+      null;
+
+    const entries = [pick('ambient'), pick('music'), pick('comedy')].filter(Boolean);
+    mediaHub.innerHTML = entries.length
+      ? entries
+          .map(
+            (entry) => `
+              <div class="list-item">
+                <div class="button-row">
+                  <span class="pill low">${entry.kind}</span>
+                </div>
+                <h4>${entry.title}</h4>
+                <a class="btn-soft" href="${entry.url}" target="_blank" rel="noreferrer">Open</a>
+              </div>
+            `
+          )
+          .join('')
+      : '<div class="list-item"><p>No media recommendations yet.</p></div>';
+  }
 
   videosList.innerHTML = data.personalizedVideos.length
     ? data.personalizedVideos

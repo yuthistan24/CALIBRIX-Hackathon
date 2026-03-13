@@ -4,6 +4,7 @@ const psychologists = require('../data/psychologists');
 const scholarships = require('../data/scholarships');
 const videoRecommendations = require('../data/videoRecommendations');
 const miniGames = require('../data/miniGames');
+const mediaCatalog = require('../data/mediaCatalog');
 const dailyTasks = require('../data/dailyTasks');
 const hospitals = require('../data/hospitals');
 const resilienceResources = require('../data/resilienceResources');
@@ -950,6 +951,7 @@ const getDashboard = asyncHandler(async (req, res) => {
     evaluation,
     personalizedVideos: recommendVideos(latestCluster?.dominantFactor || student.dominantRisk, latestCheckin),
     miniGames,
+    mediaCatalog,
     deviceIntegration: {
       latestSync: latestDeviceSync,
       hooks: getDeviceHooks(),
@@ -1046,6 +1048,7 @@ const postAiChat = asyncHandler(async (req, res) => {
   const chatReply = await generateChatResponse({
     message,
     language: req.body.language || 'English',
+    sentiment,
     chatHistory: recentMessages
       .reverse()
       .map((entry) => ({
